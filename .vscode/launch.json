@@ -6,7 +6,8 @@
             "type": "lldb",
             "request": "launch",
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "Cargo build"
+            "preLaunchTask": "Cargo build",
+            // "program": ""
         }
     ]
 }
