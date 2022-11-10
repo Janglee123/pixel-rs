@@ -7,7 +7,8 @@
             "request": "launch",
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "Cargo build",
-            // "program": ""
+            // "program": "${workspaceRoot}/targer/debug/${workspaceFolderBasename}"
+            "program": "${workspaceRoot}/target/debug/pixel-rs"
         }
     ]
 }
