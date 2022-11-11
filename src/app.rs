@@ -21,7 +21,7 @@ impl AppBuilder {
         let mode = monitor.video_modes().next().expect("no mode found");
 
         let window = WindowBuilder::new()
-            .with_fullscreen(Some(Fullscreen::Borderless(Some(monitor))))
+            // .with_fullscreen(Some(Fullscreen::Borderless(Some(monitor))))
             .build(&event_loop)
             .unwrap();
 
