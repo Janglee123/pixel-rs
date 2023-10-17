@@ -1,77 +1,59 @@
+use std::{any::Any, any::TypeId, collections::HashMap};
+
 use winit::{
     dpi::PhysicalSize,
     event::{Event, KeyboardInput, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Fullscreen, WindowBuilder},
+    window::{Fullscreen, Window, WindowBuilder},
 };
 
-pub mod render_plugin;
+use crate::ecs::world::{self, Schedular, World};
 
-pub struct AppBuilder {}
 
-impl AppBuilder {
-    pub fn new() {
-        let event_loop = EventLoop::new();
-
-        let monitor = event_loop
-            .available_monitors()
-            .next()
-            .expect("no monitor found!");
-
-        let mode = monitor.video_modes().next().expect("no mode found");
-
-        let window = WindowBuilder::new()
-            // .with_fullscreen(Some(Fullscreen::Borderless(Some(monitor))))
-            .build(&event_loop)
-            .unwrap();
-
-        let mut app = App {
-            counter: 0,
-            render_plugin: render_plugin::RenderPlugin::new(&window),
-        };
-
-        event_loop.run(move |event, _, r_control_flow| {
-            *r_control_flow = ControlFlow::Poll;
-
-            match event {
-                Event::WindowEvent { window_id, event } if window_id == window.id() => {
-                    match event {
-                        WindowEvent::CloseRequested => *r_control_flow = ControlFlow::Exit,
-                        WindowEvent::Resized(physical_size) => app.on_resize(physical_size),
-                        WindowEvent::KeyboardInput {
-                            device_id: _,
-                            input,
-                            is_synthetic: _,
-                        } => app.on_keyboard_input(input),
-                        _ => (),
-                    }
-                }
-
-                Event::MainEventsCleared => app.update(),
-
-                _ => (),
-            }
-        });
-    }
+pub trait Plugin {
+    fn build(app: &mut App);
 }
 
 pub struct App {
-    counter: i32,
-    render_plugin: render_plugin::RenderPlugin,
+    pub world: World,
+    pub schedular: Schedular,
+    pub runner: fn(App),
 }
 
 impl App {
-    fn update(&mut self) {
-        self.counter += 1;
-        self.render_plugin.draw();
+    pub fn new() -> Self {
+        Self {
+            world: World::new(),
+            schedular: Schedular::new(),
+            runner: |app: App| {},
+        }
     }
 
-    fn on_resize(&mut self, physical_size: PhysicalSize<u32>) {
-        self.render_plugin
-            .resize(physical_size.width, physical_size.height);
+    pub fn run(self) {
+        (self.runner)(self);
     }
 
-    fn on_keyboard_input(&self, input: KeyboardInput) {
+    pub fn update(&mut self) {
+        self.schedular.run(&mut self.world);
+    }
+
+    pub fn on_resize(&mut self, physical_size: PhysicalSize<u32>) {}
+
+    pub fn on_keyboard_input(&self, input: KeyboardInput) {
         println!("Keyboard input {:?}", input);
+    }
+
+    pub fn register_plugin<T: Plugin>(&mut self) {
+        T::build(self);
+    }
+
+    pub fn set_runner(&mut self, fun: fn(App)) {
+        self.runner = fun;
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
     }
 }

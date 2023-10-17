@@ -3,15 +3,20 @@ use wgpu::{
     include_wgsl, util::DeviceExt, Device, DeviceDescriptor, Queue, RequestAdapterOptions, Surface,
     SurfaceConfiguration,
 };
+use winit::window::Window;
 
-pub struct RenderPlugin {
+use crate::{app::{App, Plugin}, ecs::world::{self, World}};
+
+pub struct Gpu {
     surface: Surface,
     queue: Queue,
     device: Device,
     surface_config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
-    num_vertices: u32
+    vertex_buffer2: wgpu::Buffer,
+    num_vertices: u32,
+    render_pipeline2: wgpu::RenderPipeline,
 }
 
 #[repr(C)]
@@ -49,26 +54,42 @@ impl Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0, 0.5, 0.0],
+        position: [0.0, 0.25, 0.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.25, -0.25, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.25, -0.25, 0.0],
+        color: [0.0, 0.0, 1.0],
+    },
+];
+
+const VERTICES2: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.0, 0.0],
         color: [1.0, 0.0, 0.0],
     },
     Vertex {
         position: [-0.5, -0.5, 0.0],
-        color: [0.0, 1.0, 0.0],
+        color: [1.0, 0.0, 0.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
-        color: [0.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [0.0, 0.5, 0.0],
+        position: [0.0, -0.5, 0.0],
         color: [1.0, 0.0, 0.0],
     },
 ];
 
-impl RenderPlugin {
-    pub fn new(window: &winit::window::Window) -> Self {
-        env_logger::init();
+
+pub struct RenderPlugin;
+
+impl Plugin for RenderPlugin {
+
+    fn build(app: &mut App) {
+
+        let window = app.world.singletons.get::<Window>().unwrap();
 
         let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
 
@@ -156,71 +177,127 @@ impl RenderPlugin {
             multiview: None,
         });
 
+        let render_pipeline2 = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[Vertex::decs()],
+            },
+
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::PointList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let vertex_buffer2 = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES2),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         let num_vertices = VERTICES.len() as u32;
 
-        Self {
+        let gpu = Gpu {
             surface,
             queue,
             device,
             surface_config,
             render_pipeline,
+            render_pipeline2,
             vertex_buffer,
+            vertex_buffer2,
             num_vertices,
-        }
-    }
+        };
 
-    pub fn draw(&self) {
-        let output = self.surface.get_current_texture().unwrap();
-
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 1.0,
-                        g: 1.0,
-                        b: 1.0,
-                        a: 1.0,
-                    }),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
-
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..self.num_vertices, 0..1);
-
-        drop(render_pass);
-        self.queue.submit(std::iter::once(encoder.finish()));
-
-        output.present();
-    }
-
-    pub fn resize(&mut self, width: u32, height: u32) {
-        if width > 0 && height > 0 {
-            self.surface_config.width = width;
-            self.surface_config.height = height;
-            self.surface.configure(&self.device, &self.surface_config);
-        }
+        app.world.singletons.insert(gpu);
+        app.schedular.add_system(1, draw);
     }
 }
+
+pub fn draw(world: &mut World) {
+
+    let mut gpu = world.singletons.get::<Gpu>().unwrap();
+
+    let output = gpu.surface.get_current_texture().unwrap();
+
+    let view = output
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
+
+    let mut encoder = gpu
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
+
+    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("Render Pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: &view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                }),
+                store: true,
+            },
+        })],
+        depth_stencil_attachment: None,
+    });
+
+    render_pass.set_pipeline(&gpu.render_pipeline);
+    render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));
+    render_pass.draw(0..3, 0..1);
+
+    render_pass.set_pipeline(&gpu.render_pipeline2);
+    render_pass.set_vertex_buffer(0, gpu.vertex_buffer2.slice(..));
+    render_pass.draw(0..3, 0..1);
+
+    drop(render_pass);
+    gpu.queue.submit(std::iter::once(encoder.finish()));
+
+    output.present();
+}
+
+// pub fn resize(&mut self, width: u32, height: u32) {
+//     if width > 0 && height > 0 {
+//         self.surface_config.width = width;
+//         self.surface_config.height = height;
+//         self.surface.configure(&self.device, &self.surface_config);
+//     }
+// }
+
