@@ -1,2 +1,3 @@
-pub mod render_plugin;
-pub mod window_plugin;
+pub mod core;
+pub mod triangle_plugin;
+pub mod renderer_plugins;

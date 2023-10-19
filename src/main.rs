@@ -8,11 +8,12 @@ use std::{
 
 use app::App;
 use ecs::world::*;
-use plugins::{window_plugin::WindowPlugin, render_plugin::RenderPlugin};
+use plugins::{core::{window_plugin::WindowPlugin, render_plugin::RenderPlugin}, triangle_plugin::TrianglePlugin};
 
 mod plugins;
 mod app;
 mod ecs;
+mod math;
 
 #[derive(Debug)]
 struct Foo {
@@ -37,14 +38,21 @@ fn main() {
 
     let mut app = App::new();
 
-    app.world.insert_entity(Bar { bar: 1 });
-    app.world.insert_entity(Bar { bar: 2 });
-    app.world.insert_entity(Bar { bar: 3 });
+    // app.world.insert_entity(Bar { bar: 1 });
+    // app.world.insert_entity(Bar { bar: 2 });
+    // app.world.insert_entity(Bar { bar: 3 });
+    // app.schedular.add_system(0, system);
 
+
+    // Core plugins
     app.register_plugin::<WindowPlugin>();
     app.register_plugin::<RenderPlugin>();
 
-    app.schedular.add_system(0, system);
+
+    // Rendering plugins
+    app.register_plugin::<TrianglePlugin>();
+    
+
 
     app.run();
 }

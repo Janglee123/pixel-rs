@@ -70,7 +70,7 @@ impl BitSet {
     }
 }
 
-pub trait Component: 'static + Debug {
+pub trait Component: 'static {
     fn get_type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
@@ -132,14 +132,6 @@ impl Archetype {
         let list = self.set.get_mut(&TypeId::of::<T>()).unwrap().get_mut::<T>();
 
         list
-    }
-
-    pub fn print_list<T: Component>(&self) {
-        let list = self.set.get(&TypeId::of::<T>()).unwrap().get::<T>();
-
-        for a in list.list.iter() {
-            println!("{:?}", a);
-        }
     }
 }
 
