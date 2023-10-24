@@ -9,6 +9,13 @@ use winit::{
 
 use crate::ecs::world::{self, Schedular, World};
 
+#[derive(Hash, PartialEq, Eq, Clone, Copy)]
+pub enum SystemStage {
+    Update,
+    Resize,
+    Start,
+    Input,
+}
 
 pub trait Plugin {
     fn build(app: &mut App);
@@ -16,7 +23,7 @@ pub trait Plugin {
 
 pub struct App {
     pub world: World,
-    pub schedular: Schedular,
+    pub schedular: Schedular<SystemStage>,
     pub runner: fn(App),
 }
 
@@ -34,13 +41,16 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedular.run(&mut self.world);
+        self.schedular.run(SystemStage::Update, &mut self.world);
     }
 
-    pub fn on_resize(&mut self, physical_size: PhysicalSize<u32>) {}
+    pub fn on_resize(&mut self, physical_size: PhysicalSize<u32>) {
+        self.schedular.run(SystemStage::Resize, &mut self.world);
+    }
 
-    pub fn on_keyboard_input(&self, input: KeyboardInput) {
+    pub fn on_keyboard_input(&mut self, input: KeyboardInput) {
         println!("Keyboard input {:?}", input);
+        self.schedular.run(SystemStage::Input, &mut self.world);
     }
 
     pub fn register_plugin<T: Plugin>(&mut self) {

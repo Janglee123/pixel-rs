@@ -1,13 +1,13 @@
-use wgpu::{include_wgsl, util::DeviceExt};
 use crate::BitSet;
 use std::any::{Any, TypeId};
+use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{
     app::Plugin,
     ecs::world::{Component, World},
     math::{color::Color, vector2::Vector2},
     plugins::core::render_plugin::Gpu,
-    query, zip
+    query, zip,
 };
 
 use super::vertex::Vertex;
@@ -105,7 +105,8 @@ impl Plugin for TileMapRenderer {
         //     });
 
         app.world.singletons.insert(TileMapRendererData {});
-        app.schedular.add_system(1, draw);
+        app.schedular
+            .add_system(crate::app::SystemStage::Update, draw);
     }
 }
 

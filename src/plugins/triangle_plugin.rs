@@ -168,7 +168,8 @@ impl Plugin for TrianglePlugin {
         app.world.insert_entity((transform2d, Quad));
 
         app.world.singletons.insert(triangle_renderer_data);
-        app.schedular.add_system(1, draw);
+        app.schedular
+            .add_system(crate::app::SystemStage::Update, draw);
     }
 }
 
@@ -229,10 +230,9 @@ pub fn draw(world: &mut World) {
     // trans.rotation = since_the_epoch.as_secs_f64().cos() as f32;
     // // println!("{:?}", trans.rotation);
 
-
     for (transform2d, _) in query!(world, Transform2d, Quad) {
         transform2d.rotation += 0.0001;
-        transform2d.position.x += 0.001; 
+        transform2d.position.x += 0.001;
         println!("{:?} {:?}", transform2d, transform2d.into_matrix());
 
         gpu.queue.write_buffer(
@@ -240,7 +240,7 @@ pub fn draw(world: &mut World) {
             0,
             bytemuck::cast_slice(&[transform2d.into_matrix()]),
         );
-        
+
         render_pass.draw_indexed(0..6, 0, 0..1);
     }
 

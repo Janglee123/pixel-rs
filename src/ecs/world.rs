@@ -329,18 +329,18 @@ impl World {
     }
 }
 
-pub struct Schedular {
-    systems: BTreeMap<u8, Vec<fn(&mut World)>>,
+pub struct Schedular<T: Hash + Eq + PartialEq + Copy + Clone> {
+    systems: HashMap<T, Vec<fn(&mut World)>>,
 }
 
-impl Schedular {
+impl<T: Hash + Eq + PartialEq + Copy + Clone> Schedular<T> {
     pub fn new() -> Self {
         Self {
-            systems: BTreeMap::new(),
+            systems: HashMap::new(),
         }
     }
 
-    pub fn add_system(&mut self, stage: u8, fun: fn(&mut World)) {
+    pub fn add_system(&mut self, stage: T, fun: fn(&mut World)) {
         if !self.systems.contains_key(&stage) {
             self.systems.insert(stage, Vec::new());
         }
@@ -348,9 +348,9 @@ impl Schedular {
         self.systems.get_mut(&stage).unwrap().push(fun);
     }
 
-    pub fn run(&mut self, world: &mut World) {
-        for (_, systems_staged) in self.systems.iter_mut() {
-            for system in systems_staged {
+    pub fn run(&mut self, stage: T, world: &mut World) {
+        for systems in self.systems.get(&stage) {
+            for system in systems {
                 system(world);
             }
         }
@@ -406,4 +406,3 @@ macro_rules! query {
         }).flatten()
     }};
 }
-
