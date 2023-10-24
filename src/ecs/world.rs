@@ -349,7 +349,7 @@ impl<T: Hash + Eq + PartialEq + Copy + Clone> Schedular<T> {
     }
 
     pub fn run(&mut self, stage: T, world: &mut World) {
-        for systems in self.systems.get(&stage) {
+        if let Some(systems) = self.systems.get(&stage) {
             for system in systems {
                 system(world);
             }
