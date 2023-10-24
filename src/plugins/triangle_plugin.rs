@@ -1,49 +1,49 @@
 use bytemuck::{Pod, Zeroable};
-use wgpu::{include_wgsl, util::DeviceExt, RenderPipeline, Buffer};
+use std::time::{SystemTime, UNIX_EPOCH};
+use wgpu::{include_wgsl, util::DeviceExt, Buffer, RenderPipeline};
 
-use crate::{app::Plugin, ecs::world::World};
+use crate::{
+    app::Plugin,
+    ecs::world::{Component, World},
+    math::{
+        transform2d::{self, Transform2d},
+        vector2::Vector2,
+    },
+    query, zip,
+};
 
-use super::core::render_plugin::Gpu;
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    color: [f32; 3],
-}
-
-impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
-
-    fn decs<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
+use super::{core::render_plugin::Gpu, renderer_plugins::vertex::Vertex};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0, 0.25, 0.0],
+        position: [1.0, 1.0, 1.0],
         color: [1.0, 0.0, 0.0],
     },
     Vertex {
-        position: [-0.25, -0.25, 0.0],
+        position: [-1.0, 1.0, 1.0],
         color: [0.0, 1.0, 0.0],
     },
     Vertex {
-        position: [0.25, -0.25, 0.0],
+        position: [-1.0, -1.0, 1.0],
+        color: [0.0, 0.0, 1.0],
+    },
+    Vertex {
+        position: [1.0, -1.0, 1.0],
         color: [0.0, 0.0, 1.0],
     },
 ];
 
+const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
+
 pub struct TriangleRendererData {
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
+    index_buffer: Buffer,
+    transform_buffer: Buffer,
+    transform_bind_group: wgpu::BindGroup,
 }
+
+pub struct Quad;
 
 pub struct TrianglePlugin;
 
@@ -55,11 +55,44 @@ impl Plugin for TrianglePlugin {
             .device
             .create_shader_module(include_wgsl!("shader.wgsl"));
 
+        let transform_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+        let transform_bind_group_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
+
+        let transform_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Transform buffer"),
+            layout: &transform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: transform_buffer.as_entire_binding(),
+            }],
+        });
+
         let render_pipeline_layout =
             gpu.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&transform_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -110,10 +143,29 @@ impl Plugin for TrianglePlugin {
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
+        let index_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(INDICES),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
         let triangle_renderer_data = TriangleRendererData {
             render_pipeline,
             vertex_buffer,
+            index_buffer,
+            transform_buffer,
+            transform_bind_group,
         };
+
+        let mut transform2d = Transform2d {
+            position: Vector2 { x: 0.5, y: 0.5 },
+            rotation: 0.1,
+            scale: Vector2 { x: 0.2, y: 0.2 },
+        };
+
+        app.world.insert_entity((transform2d, Quad));
 
         app.world.singletons.insert(triangle_renderer_data);
         app.schedular.add_system(1, draw);
@@ -121,8 +173,10 @@ impl Plugin for TrianglePlugin {
 }
 
 pub fn draw(world: &mut World) {
-    let mut gpu = world.singletons.get::<Gpu>().unwrap();
-    let mut data = world.singletons.get::<TriangleRendererData>().unwrap();
+    // let (transform2d, _) = query!(world, Transform2d, Quad).next().unwrap();
+
+    let gpu = world.singletons.get::<Gpu>().unwrap();
+    let data = world.singletons.get::<TriangleRendererData>().unwrap();
 
     let output = gpu.surface.get_current_texture().unwrap();
 
@@ -155,8 +209,40 @@ pub fn draw(world: &mut World) {
     });
 
     render_pass.set_pipeline(&data.render_pipeline);
+    render_pass.set_bind_group(0, &data.transform_bind_group, &[]);
     render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
-    render_pass.draw(0..3, 0..1);
+    render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+    // let start = SystemTime::now();
+    // let since_the_epoch = start
+    //     .duration_since(UNIX_EPOCH)
+    //     .expect("Time went backwards");
+
+    // println!("{:?}", start);
+    // println!(
+    //     "{:?} {:?}",
+    //     since_the_epoch,
+    //     since_the_epoch.as_secs_f64().cos()
+    // );
+
+    // let mut trans = transform2d.clone();
+    // trans.rotation = since_the_epoch.as_secs_f64().cos() as f32;
+    // // println!("{:?}", trans.rotation);
+
+
+    for (transform2d, _) in query!(world, Transform2d, Quad) {
+        transform2d.rotation += 0.0001;
+        transform2d.position.x += 0.001; 
+        println!("{:?} {:?}", transform2d, transform2d.into_matrix());
+
+        gpu.queue.write_buffer(
+            &data.transform_buffer,
+            0,
+            bytemuck::cast_slice(&[transform2d.into_matrix()]),
+        );
+        
+        render_pass.draw_indexed(0..6, 0, 0..1);
+    }
 
     drop(render_pass);
     gpu.queue.submit(std::iter::once(encoder.finish()));

@@ -1,8 +1,8 @@
 extern crate proc_macro;
 use anymap::AnyMap;
-use proc_macro::TokenStream;
+use hashbrown::HashMap;
 use std::any::{Any, TypeId};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -76,6 +76,8 @@ pub trait Component: 'static {
     }
 }
 
+impl<T: 'static> Component for T {}
+
 #[derive(Debug)]
 pub struct ComponentVec<T: Component> {
     pub list: Vec<T>,
@@ -99,12 +101,13 @@ impl TypelessComponentVec {
         }
     }
 
-    pub fn get_mut<T: Component>(&mut self) -> &mut ComponentVec<T> {
-        self.list.downcast_mut::<ComponentVec<T>>().unwrap()
+    pub fn get_mut<T: Component>(&mut self) -> &mut Vec<T> {
+        let a = self.list.downcast_mut::<ComponentVec<T>>().unwrap();
+        &mut a.list
     }
 
-    pub fn get<T: Component>(&self) -> &ComponentVec<T> {
-        self.list.downcast_ref::<ComponentVec<T>>().unwrap()
+    pub fn get<T: Component>(&self) -> &Vec<T> {
+        &self.list.downcast_ref::<ComponentVec<T>>().unwrap().list
     }
 }
 
@@ -122,13 +125,13 @@ impl Archetype {
         }
     }
 
-    pub fn get<T: Component>(&self) -> &ComponentVec<T> {
+    pub fn get<T: Component>(&self) -> &Vec<T> {
         let list = self.set.get(&TypeId::of::<T>()).unwrap().get::<T>();
 
         list
     }
 
-    pub fn get_mut<T: Component>(&mut self) -> &mut ComponentVec<T> {
+    pub fn get_mut<T: Component>(&mut self) -> &mut Vec<T> {
         let list = self.set.get_mut(&TypeId::of::<T>()).unwrap().get_mut::<T>();
 
         list
@@ -142,39 +145,39 @@ pub trait ComponentSet {
     fn get_type_id() -> Vec<TypeId>;
 }
 
-impl<T: Component> ComponentSet for T {
-    fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
-        let mut bitset = BitSet::new();
+// impl<T: Component> ComponentSet for T {
+//     fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
+//         let mut bitset = BitSet::new();
 
-        let id = id_map.get(&TypeId::of::<T>()).unwrap().clone();
-        bitset.insert_id(id as u8);
+//         let id = id_map.get(&TypeId::of::<T>()).unwrap().clone();
+//         bitset.insert_id(id as u8);
 
-        bitset
-    }
+//         bitset
+//     }
 
-    fn insert(self, archetype: &mut Archetype, entity_id: u64) {
-        let b = archetype
-            .set
-            .get_mut(&TypeId::of::<T>())
-            .unwrap()
-            .get_mut::<T>();
-        b.list.push(self);
-        archetype.entity_row_map.insert(entity_id, b.list.len() - 1);
-    }
+//     fn insert(self, archetype: &mut Archetype, entity_id: u64) {
+//         let b = archetype
+//             .set
+//             .get_mut(&TypeId::of::<T>())
+//             .unwrap()
+//             .get_mut::<T>();
+//         b.list.push(self);
+//         archetype.entity_row_map.insert(entity_id, b.list.len() - 1);
+//     }
 
-    fn create_archetype(&self) -> Archetype {
-        let mut archetype = Archetype::new();
-        archetype
-            .set
-            .insert(TypeId::of::<T>(), TypelessComponentVec::new::<T>());
+//     fn create_archetype(&self) -> Archetype {
+//         let mut archetype = Archetype::new();
+//         archetype
+//             .set
+//             .insert(TypeId::of::<T>(), TypelessComponentVec::new::<T>());
 
-        archetype
-    }
+//         archetype
+//     }
 
-    fn get_type_id() -> Vec<TypeId> {
-        vec![TypeId::of::<T>()]
-    }
-}
+//     fn get_type_id() -> Vec<TypeId> {
+//         vec![TypeId::of::<T>()]
+//     }
+// }
 
 impl<T: Component> ComponentSet for (T,) {
     fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
@@ -192,7 +195,6 @@ impl<T: Component> ComponentSet for (T,) {
             .get_mut(&TypeId::of::<T>())
             .unwrap()
             .get_mut::<T>()
-            .list
             .push(self.0);
 
         let len = archetype
@@ -200,7 +202,6 @@ impl<T: Component> ComponentSet for (T,) {
             .get_mut(&TypeId::of::<T>())
             .unwrap()
             .get_mut::<T>()
-            .list
             .len()
             - 1;
         archetype.entity_row_map.insert(entity_id, len);
@@ -239,14 +240,12 @@ impl<T: Component, V: Component> ComponentSet for (T, V) {
             .get_mut(&TypeId::of::<T>())
             .unwrap()
             .get_mut::<T>()
-            .list
             .push(self.0);
         archetype
             .set
             .get_mut(&TypeId::of::<V>())
             .unwrap()
             .get_mut::<V>()
-            .list
             .push(self.1);
 
         let len = archetype
@@ -254,7 +253,6 @@ impl<T: Component, V: Component> ComponentSet for (T, V) {
             .get_mut(&TypeId::of::<T>())
             .unwrap()
             .get_mut::<T>()
-            .list
             .len()
             - 1;
         archetype.entity_row_map.insert(entity_id, len);
@@ -372,9 +370,12 @@ macro_rules! zip {
 #[macro_export]
 macro_rules! query {
     ($world:expr, $($ty:ty),+ ) => {{
-        $world as &mut World;
+        use std::any::{TypeId};
+        use crate::ecs::world::BitSet;
 
-        let mut bitset = BitSet::new();
+        $world as &World;
+
+        let mut target_bitset = BitSet::new();
 
         $(
             let id = $world
@@ -383,17 +384,26 @@ macro_rules! query {
             .unwrap()
             .clone();
 
-            bitset.insert_id(id);
+            target_bitset.insert_id(id);
         )*
 
         let archetype_id_map = &mut $world.archetype_id_map;
+        let iter_mut = archetype_id_map.iter_mut();
 
-        zip!($(
-           {archetype_id_map.iter()
-            .filter(move |x| x.0.contains(&bitset))
-            .map(|x| &x.1.get::<$ty>().list)
-            .flatten()
-            },
-        )*)
+        iter_mut.filter(move |(bitset, _)| bitset.contains(&target_bitset))
+        .map(|(_, archetype)| {
+
+                // So here I have to get the list of all and then zip them all how noice
+                let vec_of_vecs = archetype.set.get_many_mut([
+                    $(&TypeId::of::<$ty>(),)*
+                ]).unwrap();
+
+                let mut iter = vec_of_vecs.into_iter();
+
+                zip!($({
+                    iter.next().unwrap().get_mut::<$ty>().iter_mut()
+                },)*)
+        }).flatten()
     }};
 }
+

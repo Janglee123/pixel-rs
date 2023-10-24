@@ -23,7 +23,7 @@ fn vs_main(
 
     var out: VertexOutput;
 
-    out.color = transform.transform[2];
+    out.color = transform.transform[2]; // Color is not channing so position is not moving for sure
     out.clip_position = vec4<f32>(transform.transform * in.position, 1.0);
     return out;
 }

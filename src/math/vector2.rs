@@ -2,11 +2,11 @@ use super::is_zero::IsZero;
 use core::num;
 use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
-    process::Output,
+    process::Output, iter::Once,
 };
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
-pub struct Vector2<T: Mul + Add + Sub + Div + IsZero + Into<f64>> {
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, Default)]
+pub struct Vector2<T: Mul + Add + Sub + Div + IsZero + Into<f64> + Copy> {
     pub x: T,
     pub y: T,
 }
@@ -19,7 +19,8 @@ impl<
             + IsZero
             + PartialEq
             + Eq
-            + Into<f64>,
+            + Into<f64>
+            + Copy,
     > Vector2<T>
 {
     pub fn new(x: T, y: T) -> Self {
@@ -100,7 +101,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Add for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -120,7 +127,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + AddAssign,
+            + AddAssign
+            + Copy,
     > AddAssign for Vector2<T>
 {
     fn add_assign(&mut self, rhs: Self) {
@@ -130,7 +138,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Add<T> for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -150,7 +164,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + AddAssign,
+            + AddAssign
+            + Copy,
     > AddAssign<T> for Vector2<T>
 {
     fn add_assign(&mut self, rhs: T) {
@@ -160,7 +175,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Sub for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -180,7 +201,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + SubAssign,
+            + SubAssign
+            + Copy,
     > SubAssign for Vector2<T>
 {
     fn sub_assign(&mut self, rhs: Self) {
@@ -190,7 +212,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Sub<T> for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -210,7 +238,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + SubAssign,
+            + SubAssign
+            + Copy,
     > SubAssign<T> for Vector2<T>
 {
     fn sub_assign(&mut self, rhs: T) {
@@ -220,7 +249,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Mul for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -240,7 +275,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + MulAssign,
+            + MulAssign
+            + Copy,
     > MulAssign for Vector2<T>
 {
     fn mul_assign(&mut self, rhs: Self) {
@@ -250,7 +286,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Mul<T> for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -270,7 +312,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + MulAssign,
+            + MulAssign
+            + Copy,
     > MulAssign<T> for Vector2<T>
 {
     fn mul_assign(&mut self, rhs: T) {
@@ -280,7 +323,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Div for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -300,7 +349,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + DivAssign,
+            + DivAssign
+            + Copy,
     > DivAssign for Vector2<T>
 {
     fn div_assign(&mut self, rhs: Self) {
@@ -310,7 +360,13 @@ impl<
 }
 
 impl<
-        T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Div<Output = T> + IsZero + Into<f64>,
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + Copy,
     > Div<T> for Vector2<T>
 {
     type Output = Vector2<T>;
@@ -330,7 +386,8 @@ impl<
             + Div<Output = T>
             + IsZero
             + Into<f64>
-            + DivAssign,
+            + DivAssign
+            + Copy,
     > DivAssign<T> for Vector2<T>
 {
     fn div_assign(&mut self, rhs: T) {
