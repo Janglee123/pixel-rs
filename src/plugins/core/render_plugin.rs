@@ -5,7 +5,10 @@ use wgpu::{
 };
 use winit::window::Window;
 
-use crate::{app::{App, Plugin}, ecs::world::{self, World}};
+use crate::{
+    app::{App, Plugin},
+    ecs::world::{self, World},
+};
 
 pub struct Gpu {
     pub surface: Surface,
@@ -14,15 +17,10 @@ pub struct Gpu {
     pub surface_config: wgpu::SurfaceConfiguration,
 }
 
-
-
-
 pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
-
     fn build(app: &mut App) {
-
         let window = app.world.singletons.get::<Window>().unwrap();
 
         let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
@@ -65,172 +63,27 @@ impl Plugin for RenderPlugin {
 
         surface.configure(&device, &surface_config);
 
-        // let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
-
-        // let render_pipeline_layout =
-        //     device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //         label: Some("Render Pipeline Layout"),
-        //         bind_group_layouts: &[],
-        //         push_constant_ranges: &[],
-        //     });
-
-        // let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        //     label: Some("Render Pipeline"),
-        //     layout: Some(&render_pipeline_layout),
-        //     vertex: wgpu::VertexState {
-        //         module: &shader,
-        //         entry_point: "vs_main",
-        //         buffers: &[Vertex::decs()],
-        //     },
-
-        //     fragment: Some(wgpu::FragmentState {
-        //         module: &shader,
-        //         entry_point: "fs_main",
-        //         targets: &[Some(wgpu::ColorTargetState {
-        //             format: surface_config.format,
-        //             blend: Some(wgpu::BlendState::REPLACE),
-        //             write_mask: wgpu::ColorWrites::ALL,
-        //         })],
-        //     }),
-
-        //     primitive: wgpu::PrimitiveState {
-        //         topology: wgpu::PrimitiveTopology::TriangleList,
-        //         strip_index_format: None,
-        //         front_face: wgpu::FrontFace::Ccw,
-        //         cull_mode: Some(wgpu::Face::Back),
-        //         unclipped_depth: false,
-        //         polygon_mode: wgpu::PolygonMode::Fill,
-        //         conservative: false,
-        //     },
-        //     depth_stencil: None,
-        //     multisample: wgpu::MultisampleState {
-        //         count: 1,
-        //         mask: !0,
-        //         alpha_to_coverage_enabled: false,
-        //     },
-        //     multiview: None,
-        // });
-
-        // let render_pipeline2 = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        //     label: Some("Render Pipeline"),
-        //     layout: Some(&render_pipeline_layout),
-        //     vertex: wgpu::VertexState {
-        //         module: &shader,
-        //         entry_point: "vs_main",
-        //         buffers: &[Vertex::decs()],
-        //     },
-
-        //     fragment: Some(wgpu::FragmentState {
-        //         module: &shader,
-        //         entry_point: "fs_main",
-        //         targets: &[Some(wgpu::ColorTargetState {
-        //             format: surface_config.format,
-        //             blend: Some(wgpu::BlendState::REPLACE),
-        //             write_mask: wgpu::ColorWrites::ALL,
-        //         })],
-        //     }),
-
-        //     primitive: wgpu::PrimitiveState {
-        //         topology: wgpu::PrimitiveTopology::PointList,
-        //         strip_index_format: None,
-        //         front_face: wgpu::FrontFace::Ccw,
-        //         cull_mode: Some(wgpu::Face::Back),
-        //         unclipped_depth: false,
-        //         polygon_mode: wgpu::PolygonMode::Fill,
-        //         conservative: false,
-        //     },
-        //     depth_stencil: None,
-        //     multisample: wgpu::MultisampleState {
-        //         count: 1,
-        //         mask: !0,
-        //         alpha_to_coverage_enabled: false,
-        //     },
-        //     multiview: None,
-        // });
-
-        // let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Vertex Buffer"),
-        //     contents: bytemuck::cast_slice(VERTICES),
-        //     usage: wgpu::BufferUsages::VERTEX,
-        // });
-
-        // let vertex_buffer2 = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Vertex Buffer"),
-        //     contents: bytemuck::cast_slice(VERTICES2),
-        //     usage: wgpu::BufferUsages::VERTEX,
-        // });
-
-
         let gpu = Gpu {
             surface,
             queue,
             device,
             surface_config,
-            // render_pipeline,
-            // render_pipeline2,
-            // vertex_buffer,
-            // vertex_buffer2,
-            // num_vertices,
         };
 
         app.world.singletons.insert(gpu);
+        app.schedular
+            .add_system(crate::app::SystemStage::Resize, on_resize)
         // app.schedular.add_system(1, draw);
     }
 }
 
-// pub fn draw(world: &mut World) {
+fn on_resize(world: &mut World) {
+    let window = world.singletons.get::<Window>().unwrap();
+    let size = window.inner_size();
 
-//     let mut gpu = world.singletons.get::<Gpu>().unwrap();
+    let gpu = world.singletons.get_mut::<Gpu>().unwrap();
+    gpu.surface_config.width = size.width;
+    gpu.surface_config.height = size.height;
 
-//     let output = gpu.surface.get_current_texture().unwrap();
-
-//     let view = output
-//         .texture
-//         .create_view(&wgpu::TextureViewDescriptor::default());
-
-//     let mut encoder = gpu
-//         .device
-//         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-//             label: Some("Render Encoder"),
-//         });
-
-//     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-//         label: Some("Render Pass"),
-//         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-//             view: &view,
-//             resolve_target: None,
-//             ops: wgpu::Operations {
-//                 load: wgpu::LoadOp::Clear(wgpu::Color {
-//                     r: 1.0,
-//                     g: 1.0,
-//                     b: 1.0,
-//                     a: 1.0,
-//                 }),
-//                 store: true,
-//             },
-//         })],
-//         depth_stencil_attachment: None,
-//     });
-
-//     render_pass.set_pipeline(&gpu.render_pipeline);
-//     render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));
-//     render_pass.draw(0..3, 0..1);
-
-//     render_pass.set_pipeline(&gpu.render_pipeline2);
-//     render_pass.set_vertex_buffer(0, gpu.vertex_buffer2.slice(..));
-//     render_pass.draw(0..3, 0..1);
-
-//     drop(render_pass);
-//     gpu.queue.submit(std::iter::once(encoder.finish()));
-
-//     output.present();
-// }
-
-// pub fn resize(&mut self, width: u32, height: u32) {
-//     if width > 0 && height > 0 {
-//         self.surface_config.width = width;
-//         self.surface_config.height = height;
-//         self.surface.configure(&self.device, &self.surface_config);
-//     }
-// }
-
+    gpu.surface.configure(&gpu.device, &gpu.surface_config);
+}
