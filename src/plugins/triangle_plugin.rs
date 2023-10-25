@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use std::time::{SystemTime, UNIX_EPOCH};
-use wgpu::{include_wgsl, util::DeviceExt, Buffer, RenderPipeline};
+use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, Buffer, Device, RenderPipeline};
+use winit::window::Window;
 
 use crate::{
     app::Plugin,
@@ -39,11 +40,36 @@ pub struct TriangleRendererData {
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
     index_buffer: Buffer,
+}
+
+pub struct Quad {
     transform_buffer: Buffer,
     transform_bind_group: wgpu::BindGroup,
 }
 
-pub struct Quad;
+impl Quad {
+    pub fn new(device: &Device, transform_bind_group_layout: &BindGroupLayout) -> Self {
+        let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Transform buffer"),
+            layout: transform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: transform_buffer.as_entire_binding(),
+            }],
+        });
+
+        Self {
+            transform_buffer,
+            transform_bind_group,
+        }
+    }
+}
 
 pub struct TrianglePlugin;
 
@@ -78,15 +104,6 @@ impl Plugin for TrianglePlugin {
                         count: None,
                     }],
                 });
-
-        let transform_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Transform buffer"),
-            layout: &transform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: transform_buffer.as_entire_binding(),
-            }],
-        });
 
         let render_pipeline_layout =
             gpu.device
@@ -155,17 +172,25 @@ impl Plugin for TrianglePlugin {
             render_pipeline,
             vertex_buffer,
             index_buffer,
-            transform_buffer,
-            transform_bind_group,
         };
 
-        let mut transform2d = Transform2d {
+        let transform2d = Transform2d {
             position: Vector2 { x: 0.5, y: 0.5 },
-            rotation: 0.1,
+            rotation: 0.0,
             scale: Vector2 { x: 0.2, y: 0.2 },
         };
 
-        app.world.insert_entity((transform2d, Quad));
+        let transform2d2 = Transform2d {
+            position: Vector2 { x: -0.5, y: -0.5 },
+            rotation: 0.0,
+            scale: Vector2 { x: 0.2, y: 0.3 },
+        };
+
+        let quad1 = Quad::new(&gpu.device, &transform_bind_group_layout);
+        let quad2 = Quad::new(&gpu.device, &transform_bind_group_layout);
+
+        app.world.insert_entity((transform2d, quad1));
+        app.world.insert_entity((transform2d2, quad2));
 
         app.world.singletons.insert(triangle_renderer_data);
         app.schedular
@@ -175,6 +200,9 @@ impl Plugin for TrianglePlugin {
 
 pub fn draw(world: &mut World) {
     // let (transform2d, _) = query!(world, Transform2d, Quad).next().unwrap();
+
+    let window = world.singletons.get::<Window>().unwrap();
+    let size = window.inner_size();
 
     let gpu = world.singletons.get::<Gpu>().unwrap();
     let data = world.singletons.get::<TriangleRendererData>().unwrap();
@@ -208,43 +236,26 @@ pub fn draw(world: &mut World) {
         })],
         depth_stencil_attachment: None,
     });
-
     render_pass.set_pipeline(&data.render_pipeline);
-    render_pass.set_bind_group(0, &data.transform_bind_group, &[]);
     render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
     render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-    // let start = SystemTime::now();
-    // let since_the_epoch = start
-    //     .duration_since(UNIX_EPOCH)
-    //     .expect("Time went backwards");
-
-    // println!("{:?}", start);
-    // println!(
-    //     "{:?} {:?}",
-    //     since_the_epoch,
-    //     since_the_epoch.as_secs_f64().cos()
-    // );
-
-    // let mut trans = transform2d.clone();
-    // trans.rotation = since_the_epoch.as_secs_f64().cos() as f32;
-    // // println!("{:?}", trans.rotation);
-
-    for (transform2d, _) in query!(world, Transform2d, Quad) {
-        transform2d.rotation += 0.0001;
-        transform2d.position.x += 0.001;
-        println!("{:?} {:?}", transform2d, transform2d.into_matrix());
+    for (transform2d, quad) in query!(world, Transform2d, Quad) {
+        transform2d.rotation += 0.001;
 
         gpu.queue.write_buffer(
-            &data.transform_buffer,
+            &quad.transform_buffer,
             0,
             bytemuck::cast_slice(&[transform2d.into_matrix()]),
         );
+
+        render_pass.set_bind_group(0, &quad.transform_bind_group, &[]);
 
         render_pass.draw_indexed(0..6, 0, 0..1);
     }
 
     drop(render_pass);
+
     gpu.queue.submit(std::iter::once(encoder.finish()));
 
     output.present();
