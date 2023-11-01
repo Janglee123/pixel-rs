@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use bytemuck::{Pod, Zeroable};
 
 use super::vector2::Vector2;
@@ -12,6 +14,48 @@ pub struct Matrix3 {
     _padding2: u32,
     pub origin: [f32; 3],
     _padding1: u32,
+}
+
+impl Matrix3 {
+    pub const IDENTITY: Matrix3 = Matrix3 {
+        x: [1.0, 0.0, 0.0],
+        y: [0.0, 1.0, 0.0],
+        origin: [0.0, 0.0, 1.0],
+        _padding: 0,
+        _padding1: 0,
+        _padding2: 0,
+    };
+}
+
+impl Mul for Matrix3 {
+    type Output = Matrix3;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        // ahh noo
+        let x_x = self.x[0] * rhs.x[0] + self.y[0] * rhs.x[1] + self.origin[0] * rhs.x[2];
+        let x_y = self.x[1] * rhs.x[0] + self.y[1] * rhs.x[1] + self.origin[1] * rhs.x[2];
+        let x_z = self.x[2] * rhs.x[0] + self.y[2] * rhs.x[1] + self.origin[2] * rhs.x[2];
+
+        let y_x = self.x[0] * rhs.y[0] + self.y[0] * rhs.y[1] + self.origin[0] * rhs.y[2];
+        let y_y = self.x[1] * rhs.y[0] + self.y[1] * rhs.y[1] + self.origin[1] * rhs.y[2];
+        let y_z = self.x[2] * rhs.y[0] + self.y[2] * rhs.y[1] + self.origin[2] * rhs.y[2];
+
+        let z_x =
+            self.x[0] * rhs.origin[0] + self.y[0] * rhs.origin[1] + self.origin[0] * rhs.origin[2];
+        let z_y =
+            self.x[1] * rhs.origin[0] + self.y[1] * rhs.origin[1] + self.origin[1] * rhs.origin[2];
+        let z_z =
+            self.x[2] * rhs.origin[0] + self.y[2] * rhs.origin[1] + self.origin[2] * rhs.origin[2];
+
+        Self::Output {
+            x: [x_x, x_y, x_z],
+            y: [y_x, y_y, y_z],
+            origin: [z_x, z_y, z_z],
+            _padding: 0,
+            _padding1: 0,
+            _padding2: 0,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
