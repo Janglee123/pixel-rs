@@ -5,7 +5,7 @@ use std::{
     process::Output, iter::Once,
 };
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, Default)]
+#[derive(PartialEq, Clone, Copy, Debug, Hash, Default)]
 pub struct Vector2<T: Mul + Add + Sub + Div + IsZero + Into<f64> + Copy> {
     pub x: T,
     pub y: T,
@@ -18,7 +18,6 @@ impl<
             + Div<Output = T>
             + IsZero
             + PartialEq
-            + Eq
             + Into<f64>
             + Copy,
     > Vector2<T>

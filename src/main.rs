@@ -11,8 +11,8 @@ use hashbrown::HashMap;
 use app::App;
 use ecs::world::{self, *};
 use plugins::{
-    core::{render_plugin::RenderPlugin, window_plugin::WindowPlugin},
-    triangle_plugin::TrianglePlugin,
+    core::{render_plugin::RenderPlugin, window_plugin::WindowPlugin, camera_plugin::CameraPlugin},
+    triangle_plugin::TrianglePlugin, renderer_plugins::tilemap_renderer::TileMapRenderer,
 };
 
 mod app;
@@ -49,9 +49,10 @@ fn main() {
     // Core plugins
     app.register_plugin::<WindowPlugin>();
     app.register_plugin::<RenderPlugin>();
+    app.register_plugin::<CameraPlugin>();
 
     // Rendering plugins
-    app.register_plugin::<TrianglePlugin>();
+    app.register_plugin::<TileMapRenderer>();
 
     // let mut target_bitset = BitSet::new();
 

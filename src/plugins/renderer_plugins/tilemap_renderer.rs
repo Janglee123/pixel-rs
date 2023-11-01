@@ -1,6 +1,13 @@
-use crate::BitSet;
-use std::any::{Any, TypeId};
-use wgpu::{include_wgsl, util::DeviceExt};
+use crate::{
+    math::transform2d::{self, Matrix3, Transform2d},
+    plugins::core::camera_plugin::Camera,
+    BitSet,
+};
+use std::{
+    any::{Any, TypeId},
+    mem,
+};
+use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, RenderPipeline};
 
 use crate::{
     app::Plugin,
@@ -12,32 +19,123 @@ use crate::{
 
 use super::vertex::Vertex;
 
-const QUAD: &[Vertex] = &[
+const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [1.0, 0.0, 0.0],
+        position: [1.0, 1.0, 1.0],
         color: [1.0, 0.0, 0.0],
     },
     Vertex {
-        position: [-0.25, -0.25, 0.0],
+        position: [-1.0, 1.0, 1.0],
         color: [0.0, 1.0, 0.0],
     },
     Vertex {
-        position: [0.25, -0.25, 0.0],
+        position: [-1.0, -1.0, 1.0],
+        color: [0.0, 0.0, 1.0],
+    },
+    Vertex {
+        position: [1.0, -1.0, 1.0],
         color: [0.0, 0.0, 1.0],
     },
 ];
 
+const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 pub struct TileData {
-    pos: Vector2<i32>,
-    color: Color,
+    pos: [f32; 2],
+    _padding: [f32; 2],
+    color: [f32; 3],
+    _padding2: [f32; 1],
 }
 
+impl TileData {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x3];
+
+    pub fn new(pos: [f32; 2], color: [f32; 3]) -> Self {
+        Self {
+            pos,
+            _padding: [0.0; 2],
+            color,
+            _padding2: [0.0; 1],
+        }
+    }
+
+    pub fn decs<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<TileData>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TileMap {
     pub tiles: Vec<TileData>,
-    pub tile_size: Vector2<i32>,
+    pub tile_size: Vector2<f32>,
+    pub transform_buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+    pub tile_data_buffer: wgpu::Buffer,
 }
 
-pub struct TileMapRendererData {}
+impl TileMap {
+    pub fn new(gpu: &Gpu, bind_group_layout: &BindGroupLayout) -> Self {
+        let device = &gpu.device;
+
+        let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Transform Buffer"),
+            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let tile_data = TileData::new([0.0; 2], [0.0; 3]);
+
+        let tile_data_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&[tile_data; 256]),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let tile_data_buffer_binding = wgpu::BufferBinding {
+            buffer: &tile_data_buffer,
+            offset: 0,
+            size: None,
+        };
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: transform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(tile_data_buffer_binding),
+                },
+            ],
+        });
+
+        Self {
+            tiles: Vec::new(),
+            tile_size: Vector2::default(),
+            bind_group,
+            transform_buffer,
+            tile_data_buffer,
+        }
+    }
+}
+
+pub struct TileMapRendererData {
+    render_pipeline: RenderPipeline,
+    index_buffer: wgpu::Buffer,
+    vertex_buffer: wgpu::Buffer,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
+}
 
 pub struct TileMapRenderer;
 
@@ -46,13 +144,74 @@ impl Plugin for TileMapRenderer {
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
         let shader = gpu
             .device
-            .create_shader_module(include_wgsl!("shader.wgsl"));
+            .create_shader_module(include_wgsl!("tilemap_shader.wgsl"));
+
+        let bind_group_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("tilemap_bind_group_layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
+
+        let camera_bind_group_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Camera bind group layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
+
+        let camera_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Camera buffer"),
+                contents: bytemuck::cast_slice(&[Matrix3::IDENTITY]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+        let camera_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Camera bind group"),
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+        });
 
         let render_pipeline_layout =
             gpu.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&bind_group_layout, &camera_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -96,24 +255,121 @@ impl Plugin for TileMapRenderer {
                 multiview: None,
             });
 
-        // let vertex_buffer = gpu
-        //     .device
-        //     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //         label: Some("Vertex Buffer"),
-        //         contents: bytemuck::cast_slice(VERTICES),
-        //         usage: wgpu::BufferUsages::VERTEX,
-        //     });
+        let vertex_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
 
-        app.world.singletons.insert(TileMapRendererData {});
+        let index_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(INDICES),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
+        let tile_map_data = TileMapRendererData {
+            render_pipeline,
+            vertex_buffer,
+            index_buffer,
+            camera_buffer,
+            camera_bind_group,
+        };
+
+        let mut tileMap = TileMap::new(gpu, &bind_group_layout);
+        tileMap.tile_size = Vector2::new(0.1, 0.1);
+
+        tileMap.tiles = vec![
+            TileData::new([0.0, 0.0], [1.0, 0.0, 0.0]),
+            TileData::new([-3.0, 0.0], [1.0, 0.0, 0.0]),
+            TileData::new([4.0, 4.0], [1.0, 0.0, 0.0]),
+        ];
+
+        let mut transform2d = Transform2d::IDENTITY;
+        transform2d.scale = Vector2::new(64.0, 64.0);
+        // transform2d.position = Vector2::new(0.5, 0.5);
+
+        app.world.insert_entity((tileMap, transform2d));
+
+        app.world.singletons.insert(tile_map_data);
         app.schedular
             .add_system(crate::app::SystemStage::Update, draw);
     }
 }
 
 pub fn draw(world: &mut World) {
-    for tile_map in query!(world, TileMap) {
-        // Set Pipeline
+    let gpu = world.singletons.get::<Gpu>().unwrap();
+    let data = world.singletons.get::<TileMapRendererData>().unwrap();
+
+    let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
+    let projection = transform2d.into_matrix() * camera.projection;
+
+    let output = gpu.surface.get_current_texture().unwrap();
+
+    let view = output
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
+
+    let mut encoder = gpu
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
+
+    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("Render Pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: &view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                }),
+                store: true,
+            },
+        })],
+        depth_stencil_attachment: None,
+    });
+    render_pass.set_pipeline(&data.render_pipeline);
+    render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
+    render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+    gpu.queue
+        .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
+    render_pass.set_bind_group(1, &data.camera_bind_group, &[]);
+
+    for (tile_map, transform2d) in query!(world, TileMap, Transform2d) {
+        // Set transform buffer
         // Set buffers
         // Call draw with instanced
+        // transform2d.rotation += 0.001;
+
+        gpu.queue.write_buffer(
+            &tile_map.transform_buffer,
+            0,
+            bytemuck::cast_slice(&[transform2d.into_matrix()]),
+        );
+
+        gpu.queue.write_buffer(
+            &tile_map.tile_data_buffer,
+            0,
+            bytemuck::cast_slice(&tile_map.tiles),
+        );
+
+        render_pass.set_bind_group(0, &tile_map.bind_group, &[]);
+
+        render_pass.draw_indexed(0..6, 0, 0..tile_map.tiles.len() as u32);
     }
+
+    drop(render_pass);
+
+    gpu.queue.submit(std::iter::once(encoder.finish()));
+
+    output.present();
 }

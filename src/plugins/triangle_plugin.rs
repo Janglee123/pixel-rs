@@ -40,6 +40,7 @@ pub struct TriangleRendererData {
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
     index_buffer: Buffer,
+    transform_bind_group_layout: BindGroupLayout,
 }
 
 pub struct Quad {
@@ -54,7 +55,8 @@ impl Quad {
             contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
+        
+        // I am passing bind group layout 
         let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Transform buffer"),
             layout: transform_bind_group_layout,
@@ -81,13 +83,6 @@ impl Plugin for TrianglePlugin {
             .device
             .create_shader_module(include_wgsl!("shader.wgsl"));
 
-        let transform_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
 
         let transform_bind_group_layout =
             gpu.device
@@ -172,6 +167,7 @@ impl Plugin for TrianglePlugin {
             render_pipeline,
             vertex_buffer,
             index_buffer,
+            transform_bind_group_layout,
         };
 
         let transform2d = Transform2d {
@@ -186,15 +182,17 @@ impl Plugin for TrianglePlugin {
             scale: Vector2 { x: 0.2, y: 0.3 },
         };
 
-        let quad1 = Quad::new(&gpu.device, &transform_bind_group_layout);
-        let quad2 = Quad::new(&gpu.device, &transform_bind_group_layout);
+        let quad1 = Quad::new(&gpu.device, &triangle_renderer_data.transform_bind_group_layout);
+        let quad2 = Quad::new(&gpu.device, &triangle_renderer_data.transform_bind_group_layout);
 
         app.world.insert_entity((transform2d, quad1));
         app.world.insert_entity((transform2d2, quad2));
 
         app.world.singletons.insert(triangle_renderer_data);
-        app.schedular
-            .add_system(crate::app::SystemStage::Update, draw);
+
+        // app.schedular
+        //     .add_system(crate::app::SystemStage::Update, draw);
+        
     }
 }
 
