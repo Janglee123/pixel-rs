@@ -1,6 +1,6 @@
 use crate::{
     math::transform2d::{self, Matrix3, Transform2d},
-    plugins::core::camera_plugin::Camera,
+    plugins::core::{camera_plugin::Camera, input_plugin::Input, timer_plugin::Time},
     BitSet,
 };
 use std::{
@@ -19,10 +19,29 @@ use crate::{
 
 use super::vertex::Vertex;
 
-const VERTICES: &[Vertex] = &[
+const VERTICES_RED: &[Vertex] = &[
     Vertex {
         position: [1.0, 1.0, 1.0],
         color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-1.0, 1.0, 1.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-1.0, -1.0, 1.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [1.0, -1.0, 1.0],
+        color: [1.0, 0.0, 0.0],
+    },
+];
+
+const VERTICES_GREEN: &[Vertex] = &[
+    Vertex {
+        position: [1.0, 1.0, 1.0],
+        color: [0.0, 1.0, 0.0],
     },
     Vertex {
         position: [-1.0, 1.0, 1.0],
@@ -30,11 +49,11 @@ const VERTICES: &[Vertex] = &[
     },
     Vertex {
         position: [-1.0, -1.0, 1.0],
-        color: [0.0, 0.0, 1.0],
+        color: [0.0, 1.0, 0.0],
     },
     Vertex {
         position: [1.0, -1.0, 1.0],
-        color: [0.0, 0.0, 1.0],
+        color: [0.0, 1.0, 0.0],
     },
 ];
 
@@ -259,9 +278,11 @@ impl Plugin for TileMapRenderer {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
+                contents: bytemuck::cast_slice(VERTICES_RED),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
+
+        // DAMN FUCK
 
         let index_buffer = gpu
             .device
@@ -301,8 +322,13 @@ impl Plugin for TileMapRenderer {
 }
 
 pub fn draw(world: &mut World) {
+    let input = world.singletons.get::<Input>().unwrap();
+
+    let is_mouse_pressed = input.is_mouse_button_pressed(winit::event::MouseButton::Left);
+
     let gpu = world.singletons.get::<Gpu>().unwrap();
     let data = world.singletons.get::<TileMapRendererData>().unwrap();
+    let delta_time = world.singletons.get::<Time>().unwrap().delta_time;
 
     let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
     let projection = transform2d.into_matrix() * camera.projection;
@@ -337,6 +363,16 @@ pub fn draw(world: &mut World) {
         depth_stencil_attachment: None,
     });
     render_pass.set_pipeline(&data.render_pipeline);
+
+    let a = if is_mouse_pressed {
+        VERTICES_GREEN
+    } else {
+        VERTICES_RED
+    };
+
+    gpu.queue
+        .write_buffer(&data.vertex_buffer, 0, bytemuck::cast_slice(&a));
+
     render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
     render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
@@ -348,7 +384,7 @@ pub fn draw(world: &mut World) {
         // Set transform buffer
         // Set buffers
         // Call draw with instanced
-        // transform2d.rotation += 0.001;
+        transform2d.rotation += 1.0 * delta_time;
 
         gpu.queue.write_buffer(
             &tile_map.transform_buffer,

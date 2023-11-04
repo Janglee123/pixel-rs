@@ -11,9 +11,14 @@ use hashbrown::HashMap;
 use app::App;
 use ecs::world::{self, *};
 use plugins::{
-    core::{render_plugin::RenderPlugin, window_plugin::WindowPlugin, camera_plugin::CameraPlugin},
-    triangle_plugin::TrianglePlugin, renderer_plugins::tilemap_renderer::TileMapRenderer,
+    core::{
+        camera_plugin::CameraPlugin, render_plugin::RenderPlugin, timer_plugin::TimerPlugin,
+        window_plugin::WindowPlugin, input_plugin::InputPlugin,
+    },
+    renderer_plugins::tilemap_renderer::TileMapRenderer,
+    triangle_plugin::TrianglePlugin,
 };
+use winit::event::MouseButton;
 
 mod app;
 mod ecs;
@@ -41,34 +46,15 @@ fn main() {
 
     let mut app = App::new();
 
-    // app.world.insert_entity(Bar { bar: 1 });
-    // app.world.insert_entity(Bar { bar: 2 });
-    // app.world.insert_entity(Bar { bar: 3 });
-    // app.schedular.add_system(0, system);
-
     // Core plugins
+    app.register_plugin::<InputPlugin>();
     app.register_plugin::<WindowPlugin>();
     app.register_plugin::<RenderPlugin>();
     app.register_plugin::<CameraPlugin>();
+    app.register_plugin::<TimerPlugin>();
 
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();
-
-    // let mut target_bitset = BitSet::new();
-
-    // target_bitset.insert_id(app.world.component_id_map.get(&TypeId::of::<Foo>()).unwrap().clone());
-    // target_bitset.insert_id(app.world.component_id_map.get(&TypeId::of::<Bar>()).unwrap().clone());
-
-    // let mut archetype_map = app.world.archetype_id_map;
-
-    // let a = archetype_map.iter_mut().filter(|(bitset, archetype)| {
-    //     bitset.contains(&target_bitset)
-    // }).map(|(bitset, archetype)| {
-    //     let a = archetype.get_mut::<Bar>();
-    //     let b = archetype.get_mut::<Foo>();
-
-    //     a.iter().zip(b.iter())
-    // }).flatten().map(|x| {});
 
     app.run();
 }

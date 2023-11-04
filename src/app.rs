@@ -7,14 +7,19 @@ use winit::{
     window::{Fullscreen, Window, WindowBuilder},
 };
 
-use crate::ecs::world::{self, Schedular, World};
+use crate::{
+    ecs::world::{self, Schedular, World},
+    plugins::core::input_plugin::MouseButtonInput,
+};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SystemStage {
     Update,
     Resize,
     Start,
+    PreInput,
     Input,
+    PreUpdate,
 }
 
 pub trait Plugin {
@@ -41,6 +46,7 @@ impl App {
     }
 
     pub fn update(&mut self) {
+        self.schedular.run(SystemStage::PreUpdate, &mut self.world);
         self.schedular.run(SystemStage::Update, &mut self.world);
     }
 
@@ -48,8 +54,13 @@ impl App {
         self.schedular.run(SystemStage::Resize, &mut self.world);
     }
 
-    pub fn on_keyboard_input(&mut self, input: KeyboardInput) {
-        println!("Keyboard input {:?}", input);
+    pub fn on_keyboard_input(&mut self) {
+        // self.schedular.run(SystemStage::PreInput, &mut self.world);
+        self.schedular.run(SystemStage::Input, &mut self.world);
+    }
+
+    pub fn on_mouse_input(&mut self) {
+        // self.schedular.run(SystemStage::PreInput, &mut self.world);
         self.schedular.run(SystemStage::Input, &mut self.world);
     }
 

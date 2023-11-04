@@ -33,7 +33,7 @@ fn vs_main(
     var out: VertexOutput;
     var tile_data: TileData = tile_datas[in.instance_index];
 
-    out.color = tile_data.color; // Color is not channing so position is not moving for sure
+    out.color = in.color; // Color is not channing so position is not moving for sure
     out.clip_position = vec4<f32>(projection * transform.transform * (in.position + vec3<f32>(tile_data.position, 0.0)), 1.0);
     return out;
 }
