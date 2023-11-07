@@ -125,6 +125,15 @@ impl Archetype {
         }
     }
 
+    pub fn get_many<const N: usize>(&self, ks: [TypeId; N]) -> Vec<&TypelessComponentVec> {
+        let a: Vec<&TypelessComponentVec> = ks
+            .iter()
+            .filter(|x| self.set.contains_key(*x))
+            .map(|k| self.set.get(k).unwrap())
+            .collect();
+        a
+    }
+
     pub fn get<T: Component>(&self) -> &Vec<T> {
         let list = self.set.get(&TypeId::of::<T>()).unwrap().get::<T>();
 
@@ -285,6 +294,10 @@ pub struct World {
 
 impl World {
     pub fn new() -> Self {
+        let mut map: HashMap<BitSet, Archetype> = HashMap::new();
+
+        let vec = map.get_many_mut([&BitSet::new(); 0]);
+
         Self {
             entity_id_counter: 0,
             component_id_counter: 0,
@@ -329,18 +342,18 @@ impl World {
     }
 }
 
-pub struct Schedular<T: Hash + Eq + PartialEq + Copy + Clone> {
-    systems: HashMap<T, Vec<fn(&mut World)>>,
+pub struct Schedular<T: Hash + Eq + PartialEq + Copy + Clone, V> {
+    systems: HashMap<T, Vec<fn(&mut V)>>,
 }
 
-impl<T: Hash + Eq + PartialEq + Copy + Clone> Schedular<T> {
+impl<T: Hash + Eq + PartialEq + Copy + Clone, V> Schedular<T, V> {
     pub fn new() -> Self {
         Self {
             systems: HashMap::new(),
         }
     }
 
-    pub fn add_system(&mut self, stage: T, fun: fn(&mut World)) {
+    pub fn add_system(&mut self, stage: T, fun: fn(&mut V)) {
         if !self.systems.contains_key(&stage) {
             self.systems.insert(stage, Vec::new());
         }
@@ -348,10 +361,10 @@ impl<T: Hash + Eq + PartialEq + Copy + Clone> Schedular<T> {
         self.systems.get_mut(&stage).unwrap().push(fun);
     }
 
-    pub fn run(&mut self, stage: T, world: &mut World) {
+    pub fn run(&mut self, stage: T, data: &mut V) {
         if let Some(systems) = self.systems.get(&stage) {
             for system in systems {
-                system(world);
+                system(data);
             }
         }
     }
@@ -368,7 +381,7 @@ macro_rules! zip {
 }
 
 #[macro_export]
-macro_rules! query {
+macro_rules! query_mut {
     ($world:expr, $($ty:ty),+ ) => {{
         use std::any::{TypeId};
         use crate::ecs::world::BitSet;
@@ -402,6 +415,47 @@ macro_rules! query {
 
                 zip!($({
                     iter.next().unwrap().get_mut::<$ty>().iter_mut()
+                },)*)
+        }).flatten()
+    }};
+}
+
+#[macro_export]
+macro_rules! query {
+    ($world:expr, $($ty:ty),+ ) => {{
+        use std::any::{TypeId};
+        use crate::ecs::world::BitSet;
+
+        $world as &World;
+
+        let mut target_bitset = BitSet::new();
+
+        $(
+            let id = $world
+            .component_id_map
+            .get(&TypeId::of::<$ty>())
+            .unwrap()
+            .clone();
+
+            target_bitset.insert_id(id);
+        )*
+
+        let archetype_id_map = &$world.archetype_id_map;
+        let iter_mut = archetype_id_map.iter();
+
+        iter_mut.filter(move |(bitset, _)| bitset.contains(&target_bitset))
+        .map(|(_, archetype)| {
+
+                // So here I have to get the list of all and then zip them all how noice
+                let vec_of_vecs = archetype.get_many([
+                    $(TypeId::of::<$ty>(),)*
+                ]);
+
+                let mut iter = vec_of_vecs.into_iter();
+
+                zip!($({
+                    let a = iter.next();
+                    a.unwrap().get::<$ty>().iter()
                 },)*)
         }).flatten()
     }};

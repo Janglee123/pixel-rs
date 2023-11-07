@@ -7,7 +7,7 @@ use crate::{
         transform2d::{Matrix3, Transform2d},
         vector2::Vector2,
     },
-    query, zip,
+    query_mut, zip,
 };
 
 pub struct Camera {
@@ -33,7 +33,7 @@ impl Plugin for CameraPlugin {
 pub fn on_resize(world: &mut World) {
     let size = world.singletons.get::<Window>().unwrap().inner_size();
 
-    let camera = query!(world, Camera).next().unwrap();
+    let camera = query_mut!(world, Camera).next().unwrap();
 
     camera.projection.x[0] = 1.0 / size.width as f32;
     camera.projection.y[1] = 1.0 / size.height as f32;

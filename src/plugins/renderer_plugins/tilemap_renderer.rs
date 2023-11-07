@@ -1,20 +1,26 @@
 use crate::{
     math::transform2d::{self, Matrix3, Transform2d},
-    plugins::core::{camera_plugin::Camera, input_plugin::Input, timer_plugin::Time},
+    plugins::core::{
+        camera_plugin::Camera, input_plugin::Input, render_plugin::Renderer, timer_plugin::Time,
+    },
     BitSet,
 };
 use std::{
     any::{Any, TypeId},
+    borrow::BorrowMut,
     mem,
+    ops::Deref,
+    rc::Rc,
+    sync::Arc,
 };
-use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, RenderPipeline};
+use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, RenderPass, RenderPipeline};
 
 use crate::{
     app::Plugin,
     ecs::world::{Component, World},
     math::{color::Color, vector2::Vector2},
     plugins::core::render_plugin::Gpu,
-    query, zip,
+    query, query_mut, zip,
 };
 
 use super::vertex::Vertex;
@@ -157,6 +163,49 @@ pub struct TileMapRendererData {
 }
 
 pub struct TileMapRenderer;
+
+impl Renderer for TileMapRenderer {
+    fn render<'pass, 'encoder: 'pass, 'world: 'encoder>(
+        &self,
+        render_pass: &mut RenderPass<'encoder>,
+        world: &'world World,
+    ) {
+        let data = world.singletons.get::<TileMapRendererData>().unwrap();
+        let gpu = world.singletons.get::<Gpu>().unwrap();
+
+        let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
+        let projection = transform2d.into_matrix() * camera.projection;
+
+        render_pass.set_pipeline(&data.render_pipeline);
+        gpu.queue
+            .write_buffer(&data.vertex_buffer, 0, bytemuck::cast_slice(&VERTICES_RED));
+
+        render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+        gpu.queue
+            .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
+        render_pass.set_bind_group(1, &data.camera_bind_group, &[]);
+
+        for (tile_map, transform2d) in query!(world, TileMap, Transform2d) {
+            gpu.queue.write_buffer(
+                &tile_map.transform_buffer,
+                0,
+                bytemuck::cast_slice(&[transform2d.into_matrix()]),
+            );
+
+            gpu.queue.write_buffer(
+                &tile_map.tile_data_buffer,
+                0,
+                bytemuck::cast_slice(&tile_map.tiles),
+            );
+
+            render_pass.set_bind_group(0, &tile_map.bind_group, &[]);
+
+            render_pass.draw_indexed(0..6, 0, 0..tile_map.tiles.len() as u32);
+        }
+    }
+}
 
 impl Plugin for TileMapRenderer {
     fn build(app: &mut crate::app::App) {
@@ -315,97 +364,12 @@ impl Plugin for TileMapRenderer {
 
         app.world.insert_entity((tileMap, transform2d));
 
+        app.renderers.push(Box::new(TileMapRenderer {}));
+
         app.world.singletons.insert(tile_map_data);
         app.schedular
             .add_system(crate::app::SystemStage::Update, draw);
     }
 }
 
-pub fn draw(world: &mut World) {
-    let input = world.singletons.get::<Input>().unwrap();
-
-    let is_mouse_pressed = input.is_mouse_button_pressed(winit::event::MouseButton::Left);
-
-    let gpu = world.singletons.get::<Gpu>().unwrap();
-    let data = world.singletons.get::<TileMapRendererData>().unwrap();
-    let delta_time = world.singletons.get::<Time>().unwrap().delta_time;
-
-    let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
-    let projection = transform2d.into_matrix() * camera.projection;
-
-    let output = gpu.surface.get_current_texture().unwrap();
-
-    let view = output
-        .texture
-        .create_view(&wgpu::TextureViewDescriptor::default());
-
-    let mut encoder = gpu
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
-
-    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Render Pass"),
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: &view,
-            resolve_target: None,
-            ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 1.0,
-                    g: 1.0,
-                    b: 1.0,
-                    a: 1.0,
-                }),
-                store: true,
-            },
-        })],
-        depth_stencil_attachment: None,
-    });
-    render_pass.set_pipeline(&data.render_pipeline);
-
-    let a = if is_mouse_pressed {
-        VERTICES_GREEN
-    } else {
-        VERTICES_RED
-    };
-
-    gpu.queue
-        .write_buffer(&data.vertex_buffer, 0, bytemuck::cast_slice(&a));
-
-    render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
-    render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-    gpu.queue
-        .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
-    render_pass.set_bind_group(1, &data.camera_bind_group, &[]);
-
-    for (tile_map, transform2d) in query!(world, TileMap, Transform2d) {
-        // Set transform buffer
-        // Set buffers
-        // Call draw with instanced
-        transform2d.rotation += 1.0 * delta_time;
-
-        gpu.queue.write_buffer(
-            &tile_map.transform_buffer,
-            0,
-            bytemuck::cast_slice(&[transform2d.into_matrix()]),
-        );
-
-        gpu.queue.write_buffer(
-            &tile_map.tile_data_buffer,
-            0,
-            bytemuck::cast_slice(&tile_map.tiles),
-        );
-
-        render_pass.set_bind_group(0, &tile_map.bind_group, &[]);
-
-        render_pass.draw_indexed(0..6, 0, 0..tile_map.tiles.len() as u32);
-    }
-
-    drop(render_pass);
-
-    gpu.queue.submit(std::iter::once(encoder.finish()));
-
-    output.present();
-}
+pub fn draw(world: &mut World) {}

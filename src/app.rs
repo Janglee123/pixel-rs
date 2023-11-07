@@ -1,15 +1,8 @@
-use std::{any::Any, any::TypeId, collections::HashMap};
-
-use winit::{
-    dpi::PhysicalSize,
-    event::{Event, KeyboardInput, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::{Fullscreen, Window, WindowBuilder},
-};
+use winit::dpi::PhysicalSize;
 
 use crate::{
-    ecs::world::{self, Schedular, World},
-    plugins::core::input_plugin::MouseButtonInput,
+    ecs::world::{Schedular, World},
+    plugins::core::render_plugin::Renderer,
 };
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
@@ -20,6 +13,7 @@ pub enum SystemStage {
     PreInput,
     Input,
     PreUpdate,
+    Render,
 }
 
 pub trait Plugin {
@@ -28,8 +22,10 @@ pub trait Plugin {
 
 pub struct App {
     pub world: World,
-    pub schedular: Schedular<SystemStage>,
+    pub schedular: Schedular<SystemStage, World>,
+    pub renderers: Vec<Box<dyn Renderer>>,
     pub runner: fn(App),
+    pub render_function: fn(&mut World, &Vec<Box<dyn Renderer>>),
 }
 
 impl App {
@@ -37,7 +33,9 @@ impl App {
         Self {
             world: World::new(),
             schedular: Schedular::new(),
-            runner: |app: App| {},
+            runner: |_: App| {},
+            render_function: |_, _| {},
+            renderers: Vec::new(),
         }
     }
 
@@ -48,6 +46,11 @@ impl App {
     pub fn update(&mut self) {
         self.schedular.run(SystemStage::PreUpdate, &mut self.world);
         self.schedular.run(SystemStage::Update, &mut self.world);
+
+        let fun = self.render_function;
+        let world = &mut self.world;
+
+        (fun)(world, &self.renderers);
     }
 
     pub fn on_resize(&mut self, physical_size: PhysicalSize<u32>) {
@@ -70,6 +73,10 @@ impl App {
 
     pub fn set_runner(&mut self, fun: fn(App)) {
         self.runner = fun;
+    }
+
+    pub fn set_renderer(&mut self, fun: fn(&mut World, &Vec<Box<dyn Renderer>>)) {
+        self.render_function = fun;
     }
 }
 

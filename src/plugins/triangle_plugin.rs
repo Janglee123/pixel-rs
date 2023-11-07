@@ -10,10 +10,13 @@ use crate::{
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
-    query, zip,
+    query_mut, zip, query
 };
 
-use super::{core::render_plugin::Gpu, renderer_plugins::vertex::Vertex};
+use super::{
+    core::render_plugin::{Gpu, Renderer},
+    renderer_plugins::vertex::Vertex,
+};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -55,8 +58,8 @@ impl Quad {
             contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        
-        // I am passing bind group layout 
+
+        // I am passing bind group layout
         let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Transform buffer"),
             layout: transform_bind_group_layout,
@@ -75,6 +78,36 @@ impl Quad {
 
 pub struct TrianglePlugin;
 
+impl Renderer for TrianglePlugin {
+    fn render<'pass, 'encoder: 'pass, 'world: 'encoder>(
+        &self,
+        render_pass: &mut wgpu::RenderPass<'encoder>,
+        world: &'world World,
+    ) {
+        let window = world.singletons.get::<Window>().unwrap();
+        let size = window.inner_size();
+
+        let gpu = world.singletons.get::<Gpu>().unwrap();
+        let data = world.singletons.get::<TriangleRendererData>().unwrap();
+
+        render_pass.set_pipeline(&data.render_pipeline);
+        render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+        for (transform2d, quad) in query!(world, Transform2d, Quad) {
+            gpu.queue.write_buffer(
+                &quad.transform_buffer,
+                0,
+                bytemuck::cast_slice(&[transform2d.into_matrix()]),
+            );
+
+            render_pass.set_bind_group(0, &quad.transform_bind_group, &[]);
+
+            render_pass.draw_indexed(0..6, 0, 0..1);
+        }
+    }
+}
+
 impl Plugin for TrianglePlugin {
     fn build(app: &mut crate::app::App) {
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
@@ -82,7 +115,6 @@ impl Plugin for TrianglePlugin {
         let shader = gpu
             .device
             .create_shader_module(include_wgsl!("shader.wgsl"));
-
 
         let transform_bind_group_layout =
             gpu.device
@@ -182,79 +214,23 @@ impl Plugin for TrianglePlugin {
             scale: Vector2 { x: 0.2, y: 0.3 },
         };
 
-        let quad1 = Quad::new(&gpu.device, &triangle_renderer_data.transform_bind_group_layout);
-        let quad2 = Quad::new(&gpu.device, &triangle_renderer_data.transform_bind_group_layout);
+        let quad1 = Quad::new(
+            &gpu.device,
+            &triangle_renderer_data.transform_bind_group_layout,
+        );
+        let quad2 = Quad::new(
+            &gpu.device,
+            &triangle_renderer_data.transform_bind_group_layout,
+        );
 
         app.world.insert_entity((transform2d, quad1));
         app.world.insert_entity((transform2d2, quad2));
+
+        app.renderers.push(Box::new(TrianglePlugin {}));
 
         app.world.singletons.insert(triangle_renderer_data);
 
         // app.schedular
         //     .add_system(crate::app::SystemStage::Update, draw);
-        
     }
-}
-
-pub fn draw(world: &mut World) {
-    // let (transform2d, _) = query!(world, Transform2d, Quad).next().unwrap();
-
-    let window = world.singletons.get::<Window>().unwrap();
-    let size = window.inner_size();
-
-    let gpu = world.singletons.get::<Gpu>().unwrap();
-    let data = world.singletons.get::<TriangleRendererData>().unwrap();
-
-    let output = gpu.surface.get_current_texture().unwrap();
-
-    let view = output
-        .texture
-        .create_view(&wgpu::TextureViewDescriptor::default());
-
-    let mut encoder = gpu
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
-
-    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Render Pass"),
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: &view,
-            resolve_target: None,
-            ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 1.0,
-                    g: 1.0,
-                    b: 1.0,
-                    a: 1.0,
-                }),
-                store: true,
-            },
-        })],
-        depth_stencil_attachment: None,
-    });
-    render_pass.set_pipeline(&data.render_pipeline);
-    render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
-    render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-    for (transform2d, quad) in query!(world, Transform2d, Quad) {
-        transform2d.rotation += 0.001;
-
-        gpu.queue.write_buffer(
-            &quad.transform_buffer,
-            0,
-            bytemuck::cast_slice(&[transform2d.into_matrix()]),
-        );
-
-        render_pass.set_bind_group(0, &quad.transform_bind_group, &[]);
-
-        render_pass.draw_indexed(0..6, 0, 0..1);
-    }
-
-    drop(render_pass);
-
-    gpu.queue.submit(std::iter::once(encoder.finish()));
-
-    output.present();
 }

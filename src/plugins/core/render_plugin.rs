@@ -1,20 +1,78 @@
+use std::{rc::Rc, string, sync::Arc};
+
 use bytemuck::{Pod, Zeroable};
 use wgpu::{
-    include_wgsl, util::DeviceExt, Device, DeviceDescriptor, Queue, RequestAdapterOptions, Surface,
-    SurfaceConfiguration,
+    include_wgsl, util::DeviceExt, CommandEncoder, Device, DeviceDescriptor, Queue, RenderPass,
+    RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture,
 };
 use winit::window::Window;
 
 use crate::{
     app::{App, Plugin},
     ecs::world::{self, World},
+    plugins::triangle_plugin::TrianglePlugin,
 };
+
+pub trait Renderer {
+    fn render<'pass, 'encoder: 'pass, 'world: 'encoder>(
+        &self,
+        render_pass: &mut RenderPass<'encoder>,
+        world: &'world World,
+    );
+}
 
 pub struct Gpu {
     pub surface: Surface,
     pub queue: Queue,
     pub device: Device,
     pub surface_config: wgpu::SurfaceConfiguration,
+}
+
+pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
+    let gpu = world.singletons.get::<Gpu>().unwrap();
+
+    let output = gpu.surface.get_current_texture().unwrap();
+
+    let view = output
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
+
+    let mut encoder = gpu
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
+
+    let mut render_pass = (encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("Render Pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: &view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                }),
+                store: true,
+            },
+        })],
+        depth_stencil_attachment: None,
+    }));
+
+    for renderer in renderers.iter() {
+        renderer.render(&mut render_pass, world); 
+    }
+
+    drop(render_pass);
+
+    // I need to get gpu again because borrow checker doesn't allow me to use above gpu again
+    // How is the turn table borrow checker
+    let gpu = world.singletons.get::<Gpu>().unwrap();
+    gpu.queue.submit(std::iter::once(encoder.finish()));
+
+    output.present();
 }
 
 pub struct RenderPlugin;
@@ -70,6 +128,7 @@ impl Plugin for RenderPlugin {
             surface_config,
         };
 
+        app.set_renderer(render_function);
         app.world.singletons.insert(gpu);
         app.schedular
             .add_system(crate::app::SystemStage::Resize, on_resize)

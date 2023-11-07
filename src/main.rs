@@ -12,8 +12,8 @@ use app::App;
 use ecs::world::{self, *};
 use plugins::{
     core::{
-        camera_plugin::CameraPlugin, render_plugin::RenderPlugin, timer_plugin::TimerPlugin,
-        window_plugin::WindowPlugin, input_plugin::InputPlugin,
+        camera_plugin::CameraPlugin, input_plugin::InputPlugin, render_plugin::RenderPlugin,
+        timer_plugin::TimerPlugin, window_plugin::WindowPlugin,
     },
     renderer_plugins::tilemap_renderer::TileMapRenderer,
     triangle_plugin::TrianglePlugin,
@@ -36,13 +36,37 @@ struct Bar {
 }
 
 fn system(world: &mut World) {
-    for bar in query!(world, Bar) {
+    for bar in query_mut!(world, Bar) {
         println!("{}", bar.bar);
     }
 }
 
 fn main() {
     env_logger::init();
+
+    // let mut world = World::new();
+
+    // world.insert_entity((Bar { bar: 1 },));
+    // world.insert_entity((Bar { bar: 1 },));
+    // world.insert_entity((Bar { bar: 1 },));
+    // world.insert_entity((Bar { bar: 1 },));
+    // world.insert_entity((Bar { bar: 1 },));
+
+    // world.insert_entity((Foo { foo: 1 },));
+    // world.insert_entity((Foo { foo: 1 },));
+    // world.insert_entity((Foo { foo: 1 },));
+    // world.insert_entity((Foo { foo: 1 },));
+    // world.insert_entity((Foo { foo: 1 },));
+
+    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
+    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
+    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
+    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
+    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
+
+    // for (bar, foo) in query!(&world, Bar, Foo) {
+    //     println!("{:?} {:?}", bar, foo);
+    // }
 
     let mut app = App::new();
 
@@ -55,6 +79,7 @@ fn main() {
 
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();
+    app.register_plugin::<TrianglePlugin>();
 
     app.run();
 }
