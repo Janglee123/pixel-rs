@@ -331,8 +331,6 @@ impl Plugin for TileMapRenderer {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        // DAMN FUCK
-
         let index_buffer = gpu
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -349,27 +347,23 @@ impl Plugin for TileMapRenderer {
             camera_bind_group,
         };
 
-        let mut tileMap = TileMap::new(gpu, &bind_group_layout);
-        tileMap.tile_size = Vector2::new(0.1, 0.1);
+        // let mut tileMap = TileMap::new(gpu, &bind_group_layout);
+        // tileMap.tile_size = Vector2::new(0.1, 0.1);
 
-        tileMap.tiles = vec![
-            TileData::new([0.0, 0.0], [1.0, 0.0, 0.0]),
-            TileData::new([-3.0, 0.0], [1.0, 0.0, 0.0]),
-            TileData::new([4.0, 4.0], [1.0, 0.0, 0.0]),
-        ];
+        // tileMap.tiles = vec![
+        //     TileData::new([0.0, 0.0], [1.0, 0.0, 0.0]),
+        //     TileData::new([-3.0, 0.0], [1.0, 0.0, 0.0]),
+        //     TileData::new([4.0, 4.0], [1.0, 0.0, 0.0]),
+        // ];
 
-        let mut transform2d = Transform2d::IDENTITY;
-        transform2d.scale = Vector2::new(64.0, 64.0);
+        // let mut transform2d = Transform2d::IDENTITY;
+        // transform2d.scale = Vector2::new(64.0, 64.0);
         // transform2d.position = Vector2::new(0.5, 0.5);
 
-        app.world.insert_entity((tileMap, transform2d));
+        // app.world.insert_entity((tileMap, transform2d));
 
         app.renderers.push(Box::new(TileMapRenderer {}));
 
         app.world.singletons.insert(tile_map_data);
-        app.schedular
-            .add_system(crate::app::SystemStage::Update, draw);
     }
 }
-
-pub fn draw(world: &mut World) {}

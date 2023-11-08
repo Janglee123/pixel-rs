@@ -15,8 +15,7 @@ use plugins::{
         camera_plugin::CameraPlugin, input_plugin::InputPlugin, render_plugin::RenderPlugin,
         timer_plugin::TimerPlugin, window_plugin::WindowPlugin,
     },
-    renderer_plugins::tilemap_renderer::TileMapRenderer,
-    triangle_plugin::TrianglePlugin,
+    renderer_plugins::{sprite_renderer::SpritePlugin, tilemap_renderer::TileMapRenderer},
 };
 use winit::event::MouseButton;
 
@@ -79,7 +78,7 @@ fn main() {
 
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();
-    app.register_plugin::<TrianglePlugin>();
+    app.register_plugin::<SpritePlugin>();
 
     app.run();
 }

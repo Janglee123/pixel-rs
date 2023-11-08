@@ -10,7 +10,6 @@ use winit::window::Window;
 use crate::{
     app::{App, Plugin},
     ecs::world::{self, World},
-    plugins::triangle_plugin::TrianglePlugin,
 };
 
 pub trait Renderer {

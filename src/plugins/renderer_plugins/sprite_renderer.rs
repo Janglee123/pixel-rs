@@ -10,13 +10,11 @@ use crate::{
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
-    query_mut, zip, query
+    plugins::core::render_plugin::{Gpu, Renderer},
+    query, query_mut, zip,
 };
 
-use super::{
-    core::render_plugin::{Gpu, Renderer},
-    renderer_plugins::vertex::Vertex,
-};
+use super::vertex::Vertex;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -39,7 +37,7 @@ const VERTICES: &[Vertex] = &[
 
 const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-pub struct TriangleRendererData {
+pub struct SpriteRendererData {
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
     index_buffer: Buffer,
@@ -76,9 +74,9 @@ impl Quad {
     }
 }
 
-pub struct TrianglePlugin;
+pub struct SpritePlugin;
 
-impl Renderer for TrianglePlugin {
+impl Renderer for SpritePlugin {
     fn render<'pass, 'encoder: 'pass, 'world: 'encoder>(
         &self,
         render_pass: &mut wgpu::RenderPass<'encoder>,
@@ -88,7 +86,7 @@ impl Renderer for TrianglePlugin {
         let size = window.inner_size();
 
         let gpu = world.singletons.get::<Gpu>().unwrap();
-        let data = world.singletons.get::<TriangleRendererData>().unwrap();
+        let data = world.singletons.get::<SpriteRendererData>().unwrap();
 
         render_pass.set_pipeline(&data.render_pipeline);
         render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
@@ -108,13 +106,13 @@ impl Renderer for TrianglePlugin {
     }
 }
 
-impl Plugin for TrianglePlugin {
+impl Plugin for SpritePlugin {
     fn build(app: &mut crate::app::App) {
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
         let shader = gpu
             .device
-            .create_shader_module(include_wgsl!("shader.wgsl"));
+            .create_shader_module(include_wgsl!("sprite_shader.wgsl"));
 
         let transform_bind_group_layout =
             gpu.device
@@ -195,40 +193,37 @@ impl Plugin for TrianglePlugin {
                 usage: wgpu::BufferUsages::INDEX,
             });
 
-        let triangle_renderer_data = TriangleRendererData {
+        let sprite_renderer_data = SpriteRendererData {
             render_pipeline,
             vertex_buffer,
             index_buffer,
             transform_bind_group_layout,
         };
 
-        let transform2d = Transform2d {
-            position: Vector2 { x: 0.5, y: 0.5 },
-            rotation: 0.0,
-            scale: Vector2 { x: 0.2, y: 0.2 },
-        };
+        // let transform2d = Transform2d {
+        //     position: Vector2 { x: 0.5, y: 0.5 },
+        //     rotation: 0.0,
+        //     scale: Vector2 { x: 0.2, y: 0.2 },
+        // };
 
-        let transform2d2 = Transform2d {
-            position: Vector2 { x: -0.5, y: -0.5 },
-            rotation: 0.0,
-            scale: Vector2 { x: 0.2, y: 0.3 },
-        };
+        // let transform2d2 = Transform2d {
+        //     position: Vector2 { x: -0.5, y: -0.5 },
+        //     rotation: 0.0,
+        //     scale: Vector2 { x: 0.2, y: 0.3 },
+        // };
 
-        let quad1 = Quad::new(
-            &gpu.device,
-            &triangle_renderer_data.transform_bind_group_layout,
-        );
-        let quad2 = Quad::new(
-            &gpu.device,
-            &triangle_renderer_data.transform_bind_group_layout,
-        );
+        // let quad1 = Quad::new(
+        //     &gpu.device,
+        //     &triangle_renderer_data.transform_bind_group_layout,
+        // );
+        // let quad2 = Quad::new(
+        //     &gpu.device,
+        //     &triangle_renderer_data.transform_bind_group_layout,
+        // );
 
-        app.world.insert_entity((transform2d, quad1));
-        app.world.insert_entity((transform2d2, quad2));
+        app.renderers.push(Box::new(SpritePlugin {}));
 
-        app.renderers.push(Box::new(TrianglePlugin {}));
-
-        app.world.singletons.insert(triangle_renderer_data);
+        app.world.singletons.insert(sprite_renderer_data);
 
         // app.schedular
         //     .add_system(crate::app::SystemStage::Update, draw);
