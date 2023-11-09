@@ -1,10 +1,8 @@
 use crate::{
-    math::transform2d::{self, Matrix3, Transform2d},
-    plugins::core::{
-        camera_plugin::Camera, input_plugin::Input, render_plugin::Renderer, timer_plugin::Time,
-    },
-    BitSet,
+    math::transform2d::{Matrix3, Transform2d},
+    plugins::core::{camera_plugin::Camera, render_plugin::Renderer},
 };
+
 use std::{
     any::{Any, TypeId},
     borrow::BorrowMut,
@@ -27,39 +25,20 @@ use super::vertex::Vertex;
 
 const VERTICES_RED: &[Vertex] = &[
     Vertex {
-        position: [1.0, 1.0, 1.0],
-        color: [1.0, 0.0, 0.0],
+        position: [0.5, 0.5, 1.0],
+        color: [1.0, 1.0, 1.0],
     },
     Vertex {
-        position: [-1.0, 1.0, 1.0],
-        color: [1.0, 0.0, 0.0],
+        position: [-0.5, 0.5, 1.0],
+        color: [1.0, 1.0, 1.0],
     },
     Vertex {
-        position: [-1.0, -1.0, 1.0],
-        color: [1.0, 0.0, 0.0],
+        position: [-0.5, -0.5, 1.0],
+        color: [1.0, 1.0, 1.0],
     },
     Vertex {
-        position: [1.0, -1.0, 1.0],
-        color: [1.0, 0.0, 0.0],
-    },
-];
-
-const VERTICES_GREEN: &[Vertex] = &[
-    Vertex {
-        position: [1.0, 1.0, 1.0],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        position: [-1.0, 1.0, 1.0],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        position: [-1.0, -1.0, 1.0],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        position: [1.0, -1.0, 1.0],
-        color: [0.0, 1.0, 0.0],
+        position: [0.5, -0.5, 1.0],
+        color: [1.0, 1.0, 1.0],
     },
 ];
 
@@ -103,6 +82,7 @@ pub struct TileMap {
     pub transform_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
     pub tile_data_buffer: wgpu::Buffer,
+    pub tile_size_buffer: wgpu::Buffer,
 }
 
 impl TileMap {
@@ -112,6 +92,12 @@ impl TileMap {
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Transform Buffer"),
             contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let tile_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Tile size buffer"),
+            contents: bytemuck::cast_slice(&[1.0, 1.0]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -139,6 +125,10 @@ impl TileMap {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
+                    resource: tile_size_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
                     resource: wgpu::BindingResource::Buffer(tile_data_buffer_binding),
                 },
             ],
@@ -150,6 +140,7 @@ impl TileMap {
             bind_group,
             transform_buffer,
             tile_data_buffer,
+            tile_size_buffer,
         }
     }
 }
@@ -195,6 +186,12 @@ impl Renderer for TileMapRenderer {
             );
 
             gpu.queue.write_buffer(
+                &tile_map.tile_size_buffer,
+                0,
+                bytemuck::cast_slice(&[tile_map.tile_size.x, tile_map.tile_size.y]),
+            );
+
+            gpu.queue.write_buffer(
                 &tile_map.tile_data_buffer,
                 0,
                 bytemuck::cast_slice(&tile_map.tiles),
@@ -205,6 +202,10 @@ impl Renderer for TileMapRenderer {
             render_pass.draw_indexed(0..6, 0, 0..tile_map.tiles.len() as u32);
         }
     }
+}
+
+pub struct TileMapBindGroupLayout {
+    pub layout: BindGroupLayout,
 }
 
 impl Plugin for TileMapRenderer {
@@ -231,6 +232,16 @@ impl Plugin for TileMapRenderer {
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
                             visibility: wgpu::ShaderStages::VERTEX,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -361,6 +372,12 @@ impl Plugin for TileMapRenderer {
         // transform2d.position = Vector2::new(0.5, 0.5);
 
         // app.world.insert_entity((tileMap, transform2d));
+
+        let tile_map_bind_group_layout = TileMapBindGroupLayout {
+            layout: bind_group_layout,
+        };
+
+        app.world.singletons.insert(tile_map_bind_group_layout);
 
         app.renderers.push(Box::new(TileMapRenderer {}));
 

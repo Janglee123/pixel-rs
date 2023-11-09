@@ -35,6 +35,6 @@ pub fn on_resize(world: &mut World) {
 
     let camera = query_mut!(world, Camera).next().unwrap();
 
-    camera.projection.x[0] = 1.0 / size.width as f32;
-    camera.projection.y[1] = 1.0 / size.height as f32;
+    camera.projection.x[0] = 2.0 / size.width as f32;
+    camera.projection.y[1] = 2.0 / size.height as f32;
 }

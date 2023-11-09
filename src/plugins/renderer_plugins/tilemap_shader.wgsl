@@ -21,20 +21,22 @@ struct TileData {
 }
 
 @group(0) @binding(0) var<uniform> transform: TransformUniform;
-@group(0) @binding(1) var<storage, read> tile_datas: array<TileData>;
+@group(0) @binding(1) var<uniform> tile_size: vec2<f32>;
+@group(0) @binding(2) var<storage, read> tile_datas: array<TileData>;
 
 @group(1) @binding(0) var<uniform> projection: mat3x3<f32>;
 
 @vertex
 fn vs_main(
-    in: VertexInput,
+    vertex: VertexInput,
 ) -> VertexOutput {
 
     var out: VertexOutput;
-    var tile_data: TileData = tile_datas[in.instance_index];
+    var tile_data: TileData = tile_datas[vertex.instance_index];
 
-    out.color = in.color; // Color is not channing so position is not moving for sure
-    out.clip_position = vec4<f32>(projection * transform.transform * (in.position + vec3<f32>(tile_data.position, 0.0)), 1.0);
+    out.color = tile_data.color * vertex.color; // Color is not channing so position is not moving for sure
+    var tile_pos = vertex.position * vec3<f32>(tile_size, 1.0) + vec3<f32>(tile_data.position, 0.0);
+    out.clip_position = vec4<f32>(projection * transform.transform * tile_pos, 1.0);
     return out;
 }
 

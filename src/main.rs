@@ -6,6 +6,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+use game::GamePlugin;
 use hashbrown::HashMap;
 
 use app::App;
@@ -21,6 +22,7 @@ use winit::event::MouseButton;
 
 mod app;
 mod ecs;
+mod game;
 mod math;
 mod plugins;
 
@@ -78,7 +80,11 @@ fn main() {
 
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();
-    app.register_plugin::<SpritePlugin>();
+    // app.register_plugin::<SpritePlugin>();
+
+    // Game
+    // Game related plugins are added into [game/mod.rs]
+    app.register_plugin::<GamePlugin>();
 
     app.run();
 }
