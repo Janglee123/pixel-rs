@@ -62,9 +62,11 @@ impl Hexter {
         }
     }
 
-    pub fn to_vector(&self, tile_size: f32) -> [f32; 2] {
-        let x = SQRT_THREE * tile_size * (self.q as f32 + self.r as f32 * 0.5);
-        let y = 1.5 * tile_size * (self.r as f32);
+    // Radius means distance between center to vertex
+    pub fn to_vector(&self, radius: f32) -> [f32; 2] {
+        
+        let x = SQRT_THREE * radius * (self.q as f32 + self.r as f32 * 0.5);
+        let y = 1.5 * radius * (self.r as f32);
 
         [x, y]
     }

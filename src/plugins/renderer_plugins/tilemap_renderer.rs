@@ -90,15 +90,9 @@ impl TileMap {
 
         let tile_data_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&[tile_data; 256]),
+            contents: bytemuck::cast_slice(&[tile_data; 4096]),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
-
-        let tile_data_buffer_binding = wgpu::BufferBinding {
-            buffer: &tile_data_buffer,
-            offset: 0,
-            size: None,
-        };
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -114,7 +108,7 @@ impl TileMap {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Buffer(tile_data_buffer_binding),
+                    resource: tile_data_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -338,7 +332,6 @@ impl Plugin for TileMapRenderer {
                 },
                 multiview: None,
             });
-
 
         let tile_map_data = TileMapRendererData {
             render_pipeline,

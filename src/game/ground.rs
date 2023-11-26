@@ -40,7 +40,7 @@ impl Plugin for GroundPlugin {
         let range = 5;
 
         for hexter in SpiralLoop::new(Hexter::new(0, 0), range) {
-            let [x, y] = hexter.to_vector(tile_size.x);
+            let [x, y] = hexter.to_vector(tile_size.x * 0.5);
 
             let mut r = (hexter.q as f32) * 1.0 / range as f32;
             let mut g = (hexter.r as f32) * 1.0 / range as f32;
@@ -53,11 +53,12 @@ impl Plugin for GroundPlugin {
             // let g = (y / tile_size.x / range as f32) * 0.5 + 0.5;
             // let b = ((x + y) / tile_size.x / range as f32) * 0.25 + 0.5;
 
-            //Todo: I dont know why I have to multiply 0.5 with coordinates here
-            let tile_data = TileData::new([x * 0.5, y * 0.5], [r, g, b]);
+            let tile_data = TileData::new([x, y], [r, g, b]);
 
             tile_map.tiles.push(tile_data);
         }
+
+        println!("tiles count: {}", tile_map.tiles.len());
 
         // for x in 0..range {
         //     for y in 0..range {
