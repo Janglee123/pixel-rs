@@ -1,5 +1,8 @@
 use crate::{
-    math::transform2d::{Matrix3, Transform2d},
+    math::{
+        honeycomb::HEXAGON_INDICES,
+        transform2d::{Matrix3, Transform2d},
+    },
     plugins::core::{camera_plugin::Camera, render_plugin::Renderer},
 };
 
@@ -21,28 +24,7 @@ use crate::{
     query, query_mut, zip,
 };
 
-use super::vertex::Vertex;
-
-const VERTICES_RED: &[Vertex] = &[
-    Vertex {
-        position: [0.5, 0.5, 1.0],
-        color: [1.0, 1.0, 1.0],
-    },
-    Vertex {
-        position: [-0.5, 0.5, 1.0],
-        color: [1.0, 1.0, 1.0],
-    },
-    Vertex {
-        position: [-0.5, -0.5, 1.0],
-        color: [1.0, 1.0, 1.0],
-    },
-    Vertex {
-        position: [0.5, -0.5, 1.0],
-        color: [1.0, 1.0, 1.0],
-    },
-];
-
-const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
+use super::{mesh::Mesh, vertex::Vertex};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
@@ -83,10 +65,13 @@ pub struct TileMap {
     pub bind_group: wgpu::BindGroup,
     pub tile_data_buffer: wgpu::Buffer,
     pub tile_size_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub vertex_buffer: wgpu::Buffer,
+    pub mesh: Arc<Mesh>,
 }
 
 impl TileMap {
-    pub fn new(gpu: &Gpu, bind_group_layout: &BindGroupLayout) -> Self {
+    pub fn new(gpu: &Gpu, bind_group_layout: &BindGroupLayout, mesh: Arc<Mesh>) -> Self {
         let device = &gpu.device;
 
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -134,6 +119,22 @@ impl TileMap {
             ],
         });
 
+        let vertex_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&mesh.vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+
+        let index_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&mesh.indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
         Self {
             tiles: Vec::new(),
             tile_size: Vector2::default(),
@@ -141,14 +142,15 @@ impl TileMap {
             transform_buffer,
             tile_data_buffer,
             tile_size_buffer,
+            vertex_buffer,
+            index_buffer,
+            mesh,
         }
     }
 }
 
 pub struct TileMapRendererData {
     render_pipeline: RenderPipeline,
-    index_buffer: wgpu::Buffer,
-    vertex_buffer: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
 }
@@ -168,17 +170,16 @@ impl Renderer for TileMapRenderer {
         let projection = transform2d.into_matrix() * camera.projection;
 
         render_pass.set_pipeline(&data.render_pipeline);
-        gpu.queue
-            .write_buffer(&data.vertex_buffer, 0, bytemuck::cast_slice(&VERTICES_RED));
-
-        render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         gpu.queue
             .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
         render_pass.set_bind_group(1, &data.camera_bind_group, &[]);
 
         for (tile_map, transform2d) in query!(world, TileMap, Transform2d) {
+            render_pass.set_vertex_buffer(0, tile_map.vertex_buffer.slice(..));
+            render_pass
+                .set_index_buffer(tile_map.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
             gpu.queue.write_buffer(
                 &tile_map.transform_buffer,
                 0,
@@ -199,7 +200,11 @@ impl Renderer for TileMapRenderer {
 
             render_pass.set_bind_group(0, &tile_map.bind_group, &[]);
 
-            render_pass.draw_indexed(0..6, 0, 0..tile_map.tiles.len() as u32);
+            render_pass.draw_indexed(
+                0..tile_map.mesh.indices.len() as u32,
+                0,
+                0..tile_map.tiles.len() as u32,
+            );
         }
     }
 }
@@ -334,26 +339,9 @@ impl Plugin for TileMapRenderer {
                 multiview: None,
             });
 
-        let vertex_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES_RED),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
-
-        let index_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            });
 
         let tile_map_data = TileMapRendererData {
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
             camera_buffer,
             camera_bind_group,
         };
