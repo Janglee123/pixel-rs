@@ -50,9 +50,9 @@ impl Hexter {
         let r_frac = float_r - r;
         let s_frac = float_s - s;
 
-        if (q_frac > r_frac && q_frac > s_frac) {
+        if q_frac > r_frac && q_frac > s_frac {
             q = -r - s;
-        } else if (r_frac > s_frac) {
+        } else if r_frac > s_frac {
             r = -q - s;
         }
 
