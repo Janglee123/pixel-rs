@@ -100,7 +100,7 @@ impl Plugin for RenderPlugin {
 
         let device_descriptor = DeviceDescriptor {
             label: None,
-            features: wgpu::Features::default(),
+            features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT,
             limits: wgpu::Limits::default(), // TODO: learn about this
         };
 
