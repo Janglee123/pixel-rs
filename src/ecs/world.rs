@@ -115,6 +115,7 @@ impl TypelessComponentVec {
 pub struct Archetype {
     pub set: HashMap<TypeId, TypelessComponentVec>,
     pub entity_row_map: HashMap<u64, usize>,
+    pub length: usize,
 }
 
 impl Archetype {
@@ -122,6 +123,7 @@ impl Archetype {
         Self {
             set: HashMap::new(),
             entity_row_map: HashMap::new(),
+            length: 0,
         }
     }
 
@@ -145,6 +147,12 @@ impl Archetype {
 
         list
     }
+
+    pub fn add_new_entry(&mut self) -> usize {
+        let current_length = self.length;
+        self.length += 1;
+        current_length
+    }
 }
 
 pub trait ComponentSet {
@@ -154,135 +162,67 @@ pub trait ComponentSet {
     fn get_type_id() -> Vec<TypeId>;
 }
 
-// impl<T: Component> ComponentSet for T {
-//     fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
-//         let mut bitset = BitSet::new();
+macro_rules! impl_component_set {
+    ( $(($t: ident, $index: tt)),+) => {
+        impl<$($t: Component,)+> ComponentSet for ($($t,)+) {
 
-//         let id = id_map.get(&TypeId::of::<T>()).unwrap().clone();
-//         bitset.insert_id(id as u8);
+            fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
+                let mut bitset = BitSet::new();
 
-//         bitset
-//     }
+                $(
+                    let id = id_map.get(&TypeId::of::<$t>()).unwrap().clone();
+                    bitset.insert_id(id as u8);
+                )+
+                bitset
+            }
 
-//     fn insert(self, archetype: &mut Archetype, entity_id: u64) {
-//         let b = archetype
-//             .set
-//             .get_mut(&TypeId::of::<T>())
-//             .unwrap()
-//             .get_mut::<T>();
-//         b.list.push(self);
-//         archetype.entity_row_map.insert(entity_id, b.list.len() - 1);
-//     }
+            fn create_archetype(&self) -> Archetype {
+                let mut archetype = Archetype::new();
 
-//     fn create_archetype(&self) -> Archetype {
-//         let mut archetype = Archetype::new();
-//         archetype
-//             .set
-//             .insert(TypeId::of::<T>(), TypelessComponentVec::new::<T>());
+                $(
 
-//         archetype
-//     }
+                    archetype
+                    .set
+                    .insert(TypeId::of::<$t>(), TypelessComponentVec::new::<$t>());
+                )+
 
-//     fn get_type_id() -> Vec<TypeId> {
-//         vec![TypeId::of::<T>()]
-//     }
-// }
+                archetype
+            }
 
-impl<T: Component> ComponentSet for (T,) {
-    fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
-        let mut bitset = BitSet::new();
+            fn get_type_id() -> Vec<TypeId> {
+                vec![
+                    $(
+                        TypeId::of::<$t>(),
+                    )+
+                ]
+            }
 
-        let id = id_map.get(&TypeId::of::<T>()).unwrap().clone();
-        bitset.insert_id(id as u8);
+            fn insert(self, archetype: &mut Archetype, entity_id: u64) {
 
-        bitset
-    }
+                $(
+                    archetype
+                    .set
+                    .get_mut(&TypeId::of::<$t>())
+                    .unwrap()
+                    .get_mut::<$t>()
+                    .push(self.$index);
+                )+
 
-    fn insert(self, archetype: &mut Archetype, entity_id: u64) {
-        archetype
-            .set
-            .get_mut(&TypeId::of::<T>())
-            .unwrap()
-            .get_mut::<T>()
-            .push(self.0);
-
-        let len = archetype
-            .set
-            .get_mut(&TypeId::of::<T>())
-            .unwrap()
-            .get_mut::<T>()
-            .len()
-            - 1;
-        archetype.entity_row_map.insert(entity_id, len);
-    }
-
-    fn create_archetype(&self) -> Archetype {
-        let mut archetype = Archetype::new();
-        archetype
-            .set
-            .insert(TypeId::of::<T>(), TypelessComponentVec::new::<T>());
-
-        archetype
-    }
-
-    fn get_type_id() -> Vec<TypeId> {
-        vec![TypeId::of::<T>()]
-    }
+                let index = archetype.add_new_entry();
+                archetype.entity_row_map.insert(entity_id, index);
+            }
+        }
+    };
 }
 
-impl<T: Component, V: Component> ComponentSet for (T, V) {
-    fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
-        let mut bitset = BitSet::new();
-
-        let id = id_map.get(&TypeId::of::<T>()).unwrap().clone();
-        bitset.insert_id(id as u8);
-
-        let id = id_map.get(&TypeId::of::<V>()).unwrap().clone();
-        bitset.insert_id(id as u8);
-
-        bitset
-    }
-
-    fn insert(self, archetype: &mut Archetype, entity_id: u64) {
-        archetype
-            .set
-            .get_mut(&TypeId::of::<T>())
-            .unwrap()
-            .get_mut::<T>()
-            .push(self.0);
-        archetype
-            .set
-            .get_mut(&TypeId::of::<V>())
-            .unwrap()
-            .get_mut::<V>()
-            .push(self.1);
-
-        let len = archetype
-            .set
-            .get_mut(&TypeId::of::<T>())
-            .unwrap()
-            .get_mut::<T>()
-            .len()
-            - 1;
-        archetype.entity_row_map.insert(entity_id, len);
-    }
-
-    fn create_archetype(&self) -> Archetype {
-        let mut archetype = Archetype::new();
-        archetype
-            .set
-            .insert(TypeId::of::<T>(), TypelessComponentVec::new::<T>());
-        archetype
-            .set
-            .insert(TypeId::of::<V>(), TypelessComponentVec::new::<V>());
-
-        archetype
-    }
-
-    fn get_type_id() -> Vec<TypeId> {
-        vec![TypeId::of::<T>(), TypeId::of::<V>()]
-    }
-}
+impl_component_set!((A, 0));
+impl_component_set!((A, 0), (B, 1));
+impl_component_set!((A, 0), (B, 1), (C, 2));
+impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3));
+impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4));
+impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5));
+impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5), (G, 6));
+impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5), (G, 6), (H, 7));
 
 pub struct World {
     entity_id_counter: u64,
@@ -327,7 +267,6 @@ impl World {
             }
         }
 
-        // let set_id = component_set.get_type_id();
         let bitset = T::get_bit_id_set(&self.component_id_map);
 
         if !self.archetype_id_map.contains_key(&bitset) {
