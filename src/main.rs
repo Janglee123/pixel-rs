@@ -16,7 +16,7 @@ use plugins::{
         camera_plugin::CameraPlugin, input_plugin::InputPlugin, render_plugin::RenderPlugin,
         timer_plugin::TimerPlugin, window_plugin::WindowPlugin,
     },
-    renderer_plugins::{sprite_renderer::SpritePlugin, tilemap_renderer::TileMapRenderer},
+    renderer_plugins::{sprite_renderer::SpritePlugin, tilemap_renderer::TileMapRenderer, multi_instance_mesh_renderer::MultiInstanceMeshRenderer},
 };
 use winit::event::MouseButton;
 
@@ -80,7 +80,8 @@ fn main() {
 
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();
-    // app.register_plugin::<SpritePlugin>();
+    app.register_plugin::<SpritePlugin>();
+    app.register_plugin::<MultiInstanceMeshRenderer>(); 
 
     // Game
     // Game related plugins are added into [game/mod.rs]

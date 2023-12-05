@@ -83,7 +83,7 @@ impl Transform2d {
         }
     }
 
-    pub fn into_matrix(&self) -> Matrix3 {
+    pub fn create_matrix(&self) -> Matrix3 {
         Matrix3 {
             x: [
                 self.scale.x * self.rotation.cos(),

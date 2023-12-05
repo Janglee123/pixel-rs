@@ -2,18 +2,21 @@ use std::sync::Arc;
 
 use crate::{
     app::Plugin,
+    ecs::world::World,
     math::{
         honeycomb::{Hexter, SpiralLoop},
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
     plugins::{
-        core::render_plugin::Gpu,
+        core::{render_plugin::Gpu, timer_plugin::Time},
         renderer_plugins::{
             mesh::Mesh,
+            texture::Texture,
             tilemap_renderer::{TileData, TileMap, TileMapBindGroupLayout},
         },
     },
+    zip, query_mut,
 };
 
 pub struct GroundPlugin;
@@ -27,17 +30,22 @@ impl Plugin for GroundPlugin {
             .unwrap();
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
+        let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "my texture")
+            .ok()
+            .unwrap();
+
         let mut tile_map = TileMap::new(
             gpu,
-            &bind_group_layout.layout,
+            &bind_group_layout.bind_group_layout,
             Arc::new(Mesh::get_hex_mesh()),
+            texture,
         );
         let transform2d = Transform2d::IDENTITY;
 
-        let tile_size = Vector2::new(64.0, 64.0);
+        let tile_size = Vector2::new(64.0, 64.0) * 2.0;
         tile_map.tile_size = tile_size;
 
-        let range = 5;
+        let range = 3;
 
         for hexter in SpiralLoop::new(Hexter::new(0, 0), range) {
             let [x, y] = hexter.to_vector(tile_size.x * 0.5);
@@ -60,16 +68,17 @@ impl Plugin for GroundPlugin {
 
         println!("tiles count: {}", tile_map.tiles.len());
 
-        // for x in 0..range {
-        //     for y in 0..range {
-        //         let tile_data = TileData::new(
-        //             [x as f32 * gap, y as f32 * gap],
-        //             [x as f32 / range as f32, y as f32 / range as f32, (x + y) as f32 / range as f32 * 2.0],
-        //         );
-        //         tile_map.tiles.push(tile_data);
-        //     }
-        // }
+        // app.world.insert_entity((tile_map, transform2d));
+        
+        app.schedular
+            .add_system(crate::app::SystemStage::Update, rotate)
+    }
+}
 
-        app.world.insert_entity((tile_map, transform2d));
+pub fn rotate(world: &mut World) {
+    let time = world.singletons.get::<Time>().unwrap().delta_time;
+
+    for (_, transform2d) in query_mut!(world, TileMap, Transform2d) { 
+        transform2d.rotation += time * 0.5;
     }
 }

@@ -7,14 +7,20 @@ use crate::{
     app::Plugin,
     ecs::world::{Component, World},
     math::{
-        transform2d::{self, Transform2d},
+        transform2d::{self, Matrix3, Transform2d},
         vector2::Vector2,
     },
-    plugins::core::render_plugin::{Gpu, Renderer},
+    plugins::core::{
+        camera_plugin::Camera,
+        render_plugin::{Gpu, Renderer},
+    },
     query, query_mut, zip,
 };
 
-use super::vertex::Vertex;
+use super::{
+    texture::{self, Texture},
+    vertex::Vertex,
+};
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -41,19 +47,32 @@ pub struct SpriteRendererData {
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
     index_buffer: Buffer,
-    transform_bind_group_layout: BindGroupLayout,
+    pub transform_bind_group_layout: BindGroupLayout, // Hmm I really need to think about how to write a render stuff
+    pub texture_bind_group_layout: BindGroupLayout,
+    camera_bind_group: wgpu::BindGroup,
+    camera_buffer: Buffer,
 }
 
 pub struct Quad {
     transform_buffer: Buffer,
     transform_bind_group: wgpu::BindGroup,
+    texture_bind_group: wgpu::BindGroup,
+    texture: texture::Texture, //Todo: Asset manager
 }
 
 impl Quad {
-    pub fn new(device: &Device, transform_bind_group_layout: &BindGroupLayout) -> Self {
+    // What I want is that quad does not store buffers? No
+    // What I want is that creating a quad should be easier? Then another creator can do it
+    // What I want is that I do not have to duplicate textures? Do I need it now? Nope
+    pub fn new(
+        device: &Device,
+        transform_bind_group_layout: &BindGroupLayout,
+        texture_bind_group_layout: &BindGroupLayout,
+        texture: Texture,
+    ) -> Self {
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
+            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.create_matrix()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -67,9 +86,26 @@ impl Quad {
             }],
         });
 
+        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Texture bind group"),
+            layout: texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                },
+            ],
+        });
+
         Self {
             transform_buffer,
             transform_bind_group,
+            texture_bind_group,
+            texture,
         }
     }
 }
@@ -86,20 +122,30 @@ impl Renderer for SpritePlugin {
         let size = window.inner_size();
 
         let gpu = world.singletons.get::<Gpu>().unwrap();
+        let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
+        let projection = transform2d.create_matrix() * camera.projection;
+
         let data = world.singletons.get::<SpriteRendererData>().unwrap();
 
         render_pass.set_pipeline(&data.render_pipeline);
         render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
         render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
+        // Todo: Common camera_buffer for all
+        gpu.queue
+            .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
+
+        render_pass.set_bind_group(2, &data.camera_bind_group, &[]);
+
         for (transform2d, quad) in query!(world, Transform2d, Quad) {
             gpu.queue.write_buffer(
                 &quad.transform_buffer,
                 0,
-                bytemuck::cast_slice(&[transform2d.into_matrix()]),
+                bytemuck::cast_slice(&[transform2d.create_matrix()]),
             );
 
             render_pass.set_bind_group(0, &quad.transform_bind_group, &[]);
+            render_pass.set_bind_group(1, &quad.texture_bind_group, &[]);
 
             render_pass.draw_indexed(0..6, 0, 0..1);
         }
@@ -130,11 +176,74 @@ impl Plugin for SpritePlugin {
                     }],
                 });
 
+        let camera_bind_group_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Camera bind group layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
+
+        let camera_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Camera buffer"),
+                contents: bytemuck::cast_slice(&[Matrix3::IDENTITY]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+        let camera_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Camera bind group"),
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+        });
+
+        let texture_bind_group_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            // This should match the filterable field of the
+                            // corresponding Texture entry above.
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                });
+
         let render_pipeline_layout =
             gpu.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[&transform_bind_group_layout],
+                    bind_group_layouts: &[
+                        &transform_bind_group_layout,
+                        &texture_bind_group_layout,
+                        &camera_bind_group_layout,
+                    ],
                     push_constant_ranges: &[],
                 });
 
@@ -197,14 +306,17 @@ impl Plugin for SpritePlugin {
             render_pipeline,
             vertex_buffer,
             index_buffer,
-            transform_bind_group_layout,
+            transform_bind_group_layout, // Why we have transform bind group layout here
+            texture_bind_group_layout,
+            camera_bind_group,
+            camera_buffer,
         };
 
-        // let transform2d = Transform2d {
-        //     position: Vector2 { x: 0.5, y: 0.5 },
-        //     rotation: 0.0,
-        //     scale: Vector2 { x: 0.2, y: 0.2 },
-        // };
+        let transform2d = Transform2d {
+            position: Vector2 { x: 20.0, y: 20.0 },
+            rotation: 0.0,
+            scale: Vector2 { x: 64.0, y: 64.0 }, // Why scale is not matching with pixes??
+        };
 
         // let transform2d2 = Transform2d {
         //     position: Vector2 { x: -0.5, y: -0.5 },
@@ -216,16 +328,27 @@ impl Plugin for SpritePlugin {
         //     &gpu.device,
         //     &triangle_renderer_data.transform_bind_group_layout,
         // );
-        // let quad2 = Quad::new(
-        //     &gpu.device,
-        //     &triangle_renderer_data.transform_bind_group_layout,
-        // );
+
+        let texture = Texture::from_bytes(
+            gpu,
+            include_bytes!("../../game/assets/grass.png"),
+            "my texture",
+        )
+        .ok()
+        .unwrap();
+
+        let quad = Quad::new(
+            &gpu.device,
+            &sprite_renderer_data.transform_bind_group_layout,
+            &sprite_renderer_data.texture_bind_group_layout,
+            texture,
+        );
+
+        // app.world.insert_entity((transform2d, quad));
 
         app.renderers.push(Box::new(SpritePlugin {}));
 
+        app.world.register_component::<Quad>();
         app.world.singletons.insert(sprite_renderer_data);
-
-        // app.schedular
-        //     .add_system(crate::app::SystemStage::Update, draw);
     }
 }

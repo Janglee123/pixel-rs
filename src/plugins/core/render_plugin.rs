@@ -60,8 +60,9 @@ pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
         depth_stencil_attachment: None,
     }));
 
+    // dynamic dispatch lol
     for renderer in renderers.iter() {
-        renderer.render(&mut render_pass, world); 
+        renderer.render(&mut render_pass, world);
     }
 
     drop(render_pass);
@@ -100,7 +101,9 @@ impl Plugin for RenderPlugin {
 
         let device_descriptor = DeviceDescriptor {
             label: None,
-            features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT,
+            features: wgpu::Features::default()
+                | wgpu::Features::POLYGON_MODE_LINE
+                | wgpu::Features::POLYGON_MODE_POINT,
             limits: wgpu::Limits::default(), // TODO: learn about this
         };
 

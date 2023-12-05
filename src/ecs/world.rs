@@ -14,15 +14,19 @@ pub type ComponentId = u8;
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq, Hash)]
 pub struct BitSet {
     bitmask: [u64; 4],
-    pub id: u8,
 }
 
 impl BitSet {
+    const INVALID: BitSet = BitSet {
+        bitmask: [u64::MAX, u64::MAX, u64::MAX, u64::MAX],
+    };
+
+    const EMPTY: BitSet = BitSet {
+        bitmask: [u64::MIN, u64::MIN, u64::MIN, u64::MIN],
+    };
+
     pub fn new() -> Self {
-        Self {
-            bitmask: [0u64; 4],
-            id: 0,
-        }
+        Self { bitmask: [0u64; 4] }
     }
 
     pub fn insert_id(&mut self, id: u8) -> &mut Self {
@@ -48,7 +52,7 @@ impl BitSet {
         let position = id - index * 64;
         bitmask[index as usize] = 1 << position;
 
-        Self { id, bitmask }
+        Self { bitmask }
     }
 
     #[inline(always)]
@@ -222,7 +226,16 @@ impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3));
 impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4));
 impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5));
 impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5), (G, 6));
-impl_component_set!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5), (G, 6), (H, 7));
+impl_component_set!(
+    (A, 0),
+    (B, 1),
+    (C, 2),
+    (D, 3),
+    (E, 4),
+    (F, 5),
+    (G, 6),
+    (H, 7)
+);
 
 pub struct World {
     entity_id_counter: u64,
@@ -255,6 +268,15 @@ impl World {
     fn get_new_component_id(&mut self) -> u8 {
         self.component_id_counter += 1;
         self.component_id_counter
+    }
+
+    pub fn register_component<T: Component>(&mut self) {
+        let type_id = TypeId::of::<T>();
+
+        if !self.component_id_map.contains_key(&type_id) {
+            let new_id = self.get_new_component_id();
+            self.component_id_map.insert(type_id, new_id);
+        }
     }
 
     pub fn insert_entity<T: ComponentSet>(&mut self, component_set: T) -> u64 {

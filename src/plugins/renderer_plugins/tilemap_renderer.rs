@@ -24,7 +24,7 @@ use crate::{
     query, query_mut, zip,
 };
 
-use super::{mesh::Mesh, vertex::Vertex};
+use super::{mesh::Mesh, texture::Texture, vertex::Vertex};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
@@ -68,15 +68,22 @@ pub struct TileMap {
     pub index_buffer: wgpu::Buffer,
     pub vertex_buffer: wgpu::Buffer,
     pub mesh: Arc<Mesh>,
+    texture: Texture,
 }
 
+
 impl TileMap {
-    pub fn new(gpu: &Gpu, bind_group_layout: &BindGroupLayout, mesh: Arc<Mesh>) -> Self {
+    pub fn new(
+        gpu: &Gpu,
+        bind_group_layout: &BindGroupLayout,
+        mesh: Arc<Mesh>,
+        texture: Texture,
+    ) -> Self {
         let device = &gpu.device;
 
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Transform Buffer"),
-            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.into_matrix()]),
+            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.create_matrix()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -110,6 +117,14 @@ impl TileMap {
                     binding: 2,
                     resource: tile_data_buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                },
             ],
         });
 
@@ -139,6 +154,7 @@ impl TileMap {
             vertex_buffer,
             index_buffer,
             mesh,
+            texture,
         }
     }
 }
@@ -161,7 +177,7 @@ impl Renderer for TileMapRenderer {
         let gpu = world.singletons.get::<Gpu>().unwrap();
 
         let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
-        let projection = transform2d.into_matrix() * camera.projection;
+        let projection = transform2d.create_matrix() * camera.projection;
 
         render_pass.set_pipeline(&data.render_pipeline);
 
@@ -177,7 +193,7 @@ impl Renderer for TileMapRenderer {
             gpu.queue.write_buffer(
                 &tile_map.transform_buffer,
                 0,
-                bytemuck::cast_slice(&[transform2d.into_matrix()]),
+                bytemuck::cast_slice(&[transform2d.create_matrix()]),
             );
 
             gpu.queue.write_buffer(
@@ -204,7 +220,7 @@ impl Renderer for TileMapRenderer {
 }
 
 pub struct TileMapBindGroupLayout {
-    pub layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayout,
 }
 
 impl Plugin for TileMapRenderer {
@@ -247,6 +263,24 @@ impl Plugin for TileMapRenderer {
                                 has_dynamic_offset: false,
                                 min_binding_size: None,
                             },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 4,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            // This should match the filterable field of the
+                            // corresponding Texture entry above.
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                             count: None,
                         },
                     ],
@@ -354,10 +388,9 @@ impl Plugin for TileMapRenderer {
 
         // app.world.insert_entity((tileMap, transform2d));
 
-        let tile_map_bind_group_layout = TileMapBindGroupLayout {
-            layout: bind_group_layout,
-        };
+        let tile_map_bind_group_layout = TileMapBindGroupLayout { bind_group_layout };
 
+        app.world.register_component::<TileMap>();
         app.world.singletons.insert(tile_map_bind_group_layout);
 
         app.renderers.push(Box::new(TileMapRenderer {}));

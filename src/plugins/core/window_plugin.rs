@@ -15,7 +15,7 @@ fn runner(mut app: App) {
     let w_id = app.world.singletons.get::<Window>().unwrap().id();
 
     event_loop.run(move |event, _, r_control_flow| {
-        *r_control_flow = ControlFlow::Poll;
+        // *r_control_flow = ControlFlow::Poll;
 
         match event {
             Event::WindowEvent { window_id, event } if window_id == w_id => match event {
