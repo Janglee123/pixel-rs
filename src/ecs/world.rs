@@ -301,6 +301,16 @@ impl World {
 
         entity_id
     }
+
+    pub fn remove_entity<T: ComponentSet>(&mut self, entity_id: u64) -> Option<T> {
+        for archetype in self.archetype_id_map.iter() {
+            if let Some(index) = archetype.1.entity_row_map.get(&entity_id) {
+                
+            }
+        }
+
+        return None;
+    }
 }
 
 pub struct Schedular<T: Hash + Eq + PartialEq + Copy + Clone, V> {

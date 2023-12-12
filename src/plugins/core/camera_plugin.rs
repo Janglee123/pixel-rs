@@ -26,6 +26,7 @@ impl Plugin for CameraPlugin {
             Transform2d::IDENTITY,
         ));
 
+        // I need to update camera buffer how??
         app.schedular.add_system(SystemStage::Resize, on_resize);
     }
 }

@@ -6,7 +6,7 @@ static SQRT_THREE: f32 = 1.7320508075688772;
 
 static SQRT_THREE_HALF: f32 = 0.8660254037844386;
 
-static DIRECTION_VECTORS: [Hexter; 6] = [
+pub static DIRECTION_VECTORS: [Hexter; 6] = [
     Hexter::new(1, 0),
     Hexter::new(1, -1),
     Hexter::new(0, -1),
@@ -26,8 +26,8 @@ pub static HEXAGON: [[f32; 2]; 6] = [
 
 pub static HEXAGON_INDICES: &[u16] = &[0, 1, 2, 2, 3, 4, 4, 5, 0, 0, 2, 4];
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Hexter {
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct Hexter { // Type I mean Hextor
     pub q: i32,
     pub r: i32,
 }

@@ -317,7 +317,7 @@ impl Plugin for MultiInstanceMeshRenderer {
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: gpu.surface_config.format,
-                        blend: Some(wgpu::BlendState::REPLACE),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
@@ -331,6 +331,7 @@ impl Plugin for MultiInstanceMeshRenderer {
                     polygon_mode: wgpu::PolygonMode::Fill,
                     conservative: false,
                 },
+                
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState {
                     count: 1,

@@ -5,6 +5,8 @@ use self::road::RoadPlugin;
 
 mod ground;
 mod road;
+mod core;
+mod resources;
 
 pub struct GamePlugin;
 
