@@ -1,11 +1,9 @@
 use hashbrown::{HashMap, HashSet};
-use log::Level;
 
 use crate::{
     game::resources::{
-        self,
         building_descriptor::BuildingDescriptor,
-        resource_stack::{GameResource, ResourceStack},
+        resource_stack::{self, GameResource, ResourceStack},
     },
     math::honeycomb::{self, Hextor},
 };
@@ -43,11 +41,9 @@ impl InventoryManager {
         }
     }
 
-    pub fn is_available(&self, resources: &[ResourceStack]) -> bool {
-        for resource in resources {
-            if (resource.count as u16) < *self.inventory.get(&resource.resource_type).unwrap() {
-                return false;
-            }
+    pub fn is_available(&self, resource: &ResourceStack) -> bool {
+        if (resource.count as u16) < *self.inventory.get(&resource.resource_type).unwrap() {
+            return false;
         }
 
         true
@@ -67,6 +63,7 @@ impl StatsManager {
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct BuildingInstanceId(u32);
 
+#[derive(Clone)]
 pub struct BuildingInstance {
     pub instance_id: BuildingInstanceId,
     pub center: Hextor,
@@ -186,12 +183,69 @@ impl Ground {
     }
 }
 
-pub struct UndoRedo {}
+#[derive(Clone)]
+pub struct Action {
+    pub building: Option<BuildingInstance>,
+    pub road: Option<Hextor>,
+    pub tiles_added: Option<Vec<Hextor>>,
+    pub score_change: u16,
+    pub resource_change: [ResourceStack; 3],
+}
+
+pub struct UndoRedo {
+    pub undo_stack: Vec<Action>,
+    pub redo_stack: Vec<Action>,
+}
 
 impl UndoRedo {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+        }
     }
+
+    pub fn add_action(&mut self, action: Action) {
+        self.undo_stack.push(action);
+        self.redo_stack.clear();
+    }
+
+    pub fn get_undo_action(&mut self) -> Action {
+        let action = self.undo_stack.pop().unwrap();
+        self.redo_stack.push(action.clone());
+
+        return action;
+    }
+
+    pub fn get_redo_action(&mut self) -> Action {
+        let action = self.redo_stack.pop().unwrap();
+
+        self.undo_stack.push(action.clone());
+
+        return action;
+    }
+
+    pub fn is_undo_empty(&self) -> bool {
+        self.undo_stack.len() == 0
+    }
+
+    pub fn is_redo_empty(&self) -> bool {
+        self.redo_stack.len() == 0
+    }
+}
+
+pub struct CanBuyBuildingResult {
+    pub can_buy: bool,
+    pub inefficient_resources: Vec<ResourceStack>,
+}
+
+pub struct BuildingPlaceQueryResult {
+    pub can_place: bool,
+    pub not_empty_tiles: Vec<Hextor>, // tiles which are not empty
+    pub not_connected_to_road: bool,
+
+    pub score_change: i8,
+    // pub effects: HashMap<>
 }
 
 pub struct LevelManager {
@@ -215,38 +269,117 @@ impl LevelManager {
         }
     }
 
+    pub fn undo(&mut self) {
+        let action = self.undo_redo.get_undo_action();
+
+        if let Some(building_instance) = action.building {
+            // Remove that building
+        }
+
+        if let Some(Hextor) = action.road {
+            // Remove that road
+        }
+
+        if let Some(tiles) = action.tiles_added {
+            // Remove those tiles
+        }
+
+        self.stats.score -= action.score_change;
+        self.inventory.add_items(&action.resource_change);
+    }
+
+    pub fn redo(&mut self) {
+        let action = self.undo_redo.get_redo_action();
+
+        if let Some(building_instance) = action.building {
+            // add that building
+        }
+
+        if let Some(Hextor) = action.road {
+            // add that road
+        }
+
+        if let Some(tiles) = action.tiles_added {
+            // add those tiles
+        }
+
+        self.stats.score += action.score_change;
+        self.inventory.remove_items(&action.resource_change);
+    }
+
     pub fn place_building(&mut self, building: BuildingInstance) {
         // Update score
-        // Update undo redo
+
+        // check if new area is unlocked? How to check? I need progress manager or ground can do it?
+
+        let mut resource_change = ResourceStack::resource_array(0, 0, 0);
+
+        for price in building.descriptor.price.iter() {
+            resource_change[price.resource_type as usize].count -= price.count;
+        }
+
+        for reward in building.descriptor.reward.iter() {
+            resource_change[reward.resource_type as usize].count += reward.count;
+        }
+
+        let action = Action {
+            building: Some(building.clone()),
+            road: None,
+            tiles_added: None,
+            score_change: 0, // Todo
+            resource_change,
+        };
+
+        self.undo_redo.add_action(action);
+
         self.buildings.add_building(building)
     }
 
-    pub fn can_place_building(&self, building: BuildingInstance) -> bool {
-        if !self.inventory.is_available(&building.descriptor.price) {
-            return false;
+    pub fn can_buy_building(&self, building: &BuildingInstance) -> CanBuyBuildingResult {
+        let mut can_buy = true;
+        let mut inefficient_resources = Vec::new();
+
+        for resource in building.descriptor.price.iter() {
+            if !self.inventory.is_available(resource) {
+                can_buy = false;
+                inefficient_resources.push(*resource);
+            }
         }
 
+        CanBuyBuildingResult {
+            can_buy,
+            inefficient_resources,
+        }
+    }
+
+    pub fn can_place_building(&self, building: BuildingInstance) -> BuildingPlaceQueryResult {
+        let mut can_place = true;
+        let mut not_empty_tiles = Vec::<Hextor>::new(); // tiles which are not empty
+        let mut score_change = building.descriptor.base_score;
         let mut is_connected = false;
-        // for all tiles
+
         for tile in building.rotated_tiles {
             let absolute_tile = tile + building.center;
 
             if !self.buildings.is_empty(&absolute_tile) {
-                return false;
+                not_empty_tiles.push(absolute_tile);
+                can_place = false;
             }
 
             if !self.roads.is_empty(&absolute_tile) {
-                return false;
+                not_empty_tiles.push(absolute_tile);
+                can_place = false;
             }
 
             is_connected = is_connected || self.roads.is_connected_to_road(&absolute_tile)
         }
 
-        if !is_connected {
-            return false;
+        BuildingPlaceQueryResult {
+            can_place,
+            not_empty_tiles,
+            not_connected_to_road: !is_connected,
+            score_change,
         }
-
-        return true;
     }
 
     pub fn can_place_road(&self, tile: &Hextor) -> bool {
@@ -256,6 +389,16 @@ impl LevelManager {
     }
 
     pub fn place_road(&mut self, tile: Hextor) {
+        let action = Action {
+            building: None,
+            road: Some(tile),
+            tiles_added: None,
+            score_change: 0,
+            resource_change: ResourceStack::resource_array(0, 0, 0),
+        };
+
+        self.undo_redo.add_action(action);
+
         self.roads.add_road(tile)
     }
 }
