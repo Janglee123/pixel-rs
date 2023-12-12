@@ -7,7 +7,7 @@ use crate::{
         building_descriptor::BuildingDescriptor,
         resource_stack::{GameResource, ResourceStack},
     },
-    math::honeycomb::{self, Hexter},
+    math::honeycomb::{self, Hextor},
 };
 
 pub struct InventoryManager {
@@ -69,13 +69,13 @@ pub struct BuildingInstanceId(u32);
 
 pub struct BuildingInstance {
     pub instance_id: BuildingInstanceId,
-    pub center: Hexter,
-    pub rotated_tiles: Vec<Hexter>,
+    pub center: Hextor,
+    pub rotated_tiles: Vec<Hextor>,
     pub descriptor: &'static BuildingDescriptor,
 }
 
 pub struct Buildings {
-    tile_map: HashMap<Hexter, BuildingInstanceId>,
+    tile_map: HashMap<Hextor, BuildingInstanceId>,
     id_map: HashMap<BuildingInstanceId, BuildingInstance>,
     instance_id: u32,
 }
@@ -117,13 +117,13 @@ impl Buildings {
         id
     }
 
-    pub fn is_empty(&self, tile: &Hexter) -> bool {
+    pub fn is_empty(&self, tile: &Hextor) -> bool {
         return !self.tile_map.contains_key(tile);
     }
 }
 
 pub struct Roads {
-    tile_map: HashSet<Hexter>,
+    tile_map: HashSet<Hextor>,
 }
 
 impl Roads {
@@ -133,15 +133,15 @@ impl Roads {
         }
     }
 
-    pub fn add_road(&mut self, tile: Hexter) {
+    pub fn add_road(&mut self, tile: Hextor) {
         self.tile_map.insert(tile);
     }
 
-    pub fn remove_road(&mut self, tile: Hexter) {
+    pub fn remove_road(&mut self, tile: Hextor) {
         self.tile_map.remove(&tile);
     }
 
-    pub fn is_connected_to_road(&self, tile: &Hexter) -> bool {
+    pub fn is_connected_to_road(&self, tile: &Hextor) -> bool {
         for adj in honeycomb::DIRECTION_VECTORS.iter() {
             let tile = *adj + *tile;
 
@@ -153,13 +153,13 @@ impl Roads {
         false
     }
 
-    pub fn is_empty(&self, tile: &Hexter) -> bool {
+    pub fn is_empty(&self, tile: &Hextor) -> bool {
         !self.tile_map.contains(tile)
     }
 }
 
 pub struct Ground {
-    pub tiles: HashSet<Hexter>,
+    pub tiles: HashSet<Hextor>,
 }
 
 impl Ground {
@@ -169,19 +169,19 @@ impl Ground {
         }
     }
 
-    pub fn add_tiles(&mut self, tiles: &Vec<Hexter>) {
+    pub fn add_tiles(&mut self, tiles: &Vec<Hextor>) {
         for tile in tiles {
             self.tiles.insert(*tile);
         }
     }
 
-    pub fn remove_tiles(&mut self, tiles: &Vec<Hexter>) {
+    pub fn remove_tiles(&mut self, tiles: &Vec<Hextor>) {
         for tile in tiles {
             self.tiles.remove(tile);
         }
     }
 
-    pub fn has_tile(&self, tile: &Hexter) -> bool {
+    pub fn has_tile(&self, tile: &Hextor) -> bool {
         self.tiles.contains(tile)
     }
 }
@@ -249,13 +249,13 @@ impl LevelManager {
         return true;
     }
 
-    pub fn can_place_road(&self, tile: &Hexter) -> bool {
+    pub fn can_place_road(&self, tile: &Hextor) -> bool {
         self.buildings.is_empty(tile)
             && self.roads.is_empty(tile)
             && self.roads.is_connected_to_road(tile)
     }
 
-    pub fn place_road(&mut self, tile: Hexter) {
+    pub fn place_road(&mut self, tile: Hextor) {
         self.roads.add_road(tile)
     }
 }

@@ -5,7 +5,7 @@ use hashbrown::HashMap;
 use crate::{
     app::Plugin,
     math::{
-        honeycomb::Hexter,
+        honeycomb::Hextor,
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
@@ -25,12 +25,12 @@ use crate::{
 pub struct RoadPlugin;
 
 pub struct RoadTileData {
-    pub tile_pos: Hexter,
+    pub tile_pos: Hextor,
     pub dir: Vec<u8>,
 }
 
 pub struct Roads {
-    roads: HashMap<Hexter, RoadTileData>,
+    roads: HashMap<Hextor, RoadTileData>,
 }
 
 impl Roads {

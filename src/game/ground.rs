@@ -4,7 +4,7 @@ use crate::{
     app::Plugin,
     ecs::world::World,
     math::{
-        honeycomb::{Hexter, SpiralLoop},
+        honeycomb::{Hextor, SpiralLoop},
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
@@ -47,7 +47,7 @@ impl Plugin for GroundPlugin {
 
         let range = 3;
 
-        for hexter in SpiralLoop::new(Hexter::new(0, 0), range) {
+        for hexter in SpiralLoop::new(Hextor::new(0, 0), range) {
             let [x, y] = hexter.to_vector(tile_size.x * 0.5);
 
             let mut r = (hexter.q as f32) * 1.0 / range as f32;

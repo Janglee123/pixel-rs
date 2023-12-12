@@ -6,13 +6,13 @@ static SQRT_THREE: f32 = 1.7320508075688772;
 
 static SQRT_THREE_HALF: f32 = 0.8660254037844386;
 
-pub static DIRECTION_VECTORS: [Hexter; 6] = [
-    Hexter::new(1, 0),
-    Hexter::new(1, -1),
-    Hexter::new(0, -1),
-    Hexter::new(-1, 0),
-    Hexter::new(-1, 1),
-    Hexter::new(0, 1),
+pub static DIRECTION_VECTORS: [Hextor; 6] = [
+    Hextor::new(1, 0),
+    Hextor::new(1, -1),
+    Hextor::new(0, -1),
+    Hextor::new(-1, 0),
+    Hextor::new(-1, 1),
+    Hextor::new(0, 1),
 ];
 
 pub static HEXAGON: [[f32; 2]; 6] = [
@@ -27,12 +27,12 @@ pub static HEXAGON: [[f32; 2]; 6] = [
 pub static HEXAGON_INDICES: &[u16] = &[0, 1, 2, 2, 3, 4, 4, 5, 0, 0, 2, 4];
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct Hexter { // Type I mean Hextor
+pub struct Hextor { // Type I mean Hextor
     pub q: i32,
     pub r: i32,
 }
 
-impl Hexter {
+impl Hextor {
     pub const fn new(q: i32, r: i32) -> Self {
         Self { q, r }
     }
@@ -86,7 +86,7 @@ impl Hexter {
     }
 }
 
-impl Add for Hexter {
+impl Add for Hextor {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -97,7 +97,7 @@ impl Add for Hexter {
     }
 }
 
-impl Mul<i32> for Hexter {
+impl Mul<i32> for Hextor {
     type Output = Self;
 
     fn mul(self, rhs: i32) -> Self::Output {
@@ -108,7 +108,7 @@ impl Mul<i32> for Hexter {
     }
 }
 
-impl Mul<u32> for Hexter {
+impl Mul<u32> for Hextor {
     type Output = Self;
 
     fn mul(self, rhs: u32) -> Self::Output {
@@ -120,7 +120,7 @@ impl Mul<u32> for Hexter {
 }
 
 pub struct SpiralLoop {
-    pub center_pos: Hexter,
+    pub center_pos: Hextor,
     pub range: u32,
 
     current_radius: u32,
@@ -129,7 +129,7 @@ pub struct SpiralLoop {
 }
 
 impl SpiralLoop {
-    pub fn new(center_pos: Hexter, range: u32) -> Self {
+    pub fn new(center_pos: Hextor, range: u32) -> Self {
         Self {
             center_pos,
             range,
@@ -141,7 +141,7 @@ impl SpiralLoop {
 }
 
 impl Iterator for SpiralLoop {
-    type Item = Hexter;
+    type Item = Hextor;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_radius == 0 && self.current_direction == 0 {
