@@ -237,19 +237,32 @@ impl_component_set!(
     (H, 7)
 );
 
+pub trait WorldEventData {}
+
+pub struct WorldEvent<T> {
+    listeners: Vec<fn(&mut World, &T)>,
+}
+
+impl<T> Default for WorldEvent<T> {
+    fn default() -> Self {
+        Self {
+            listeners: Default::default(),
+        }
+    }
+}
+
 pub struct World {
     entity_id_counter: u64,
     component_id_counter: u8,
     pub component_id_map: HashMap<TypeId, ComponentId>,
     pub archetype_id_map: HashMap<BitSet, Archetype>,
     pub singletons: AnyMap,
+    events: AnyMap,
 }
 
 impl World {
     pub fn new() -> Self {
         let mut map: HashMap<BitSet, Archetype> = HashMap::new();
-
-        let vec = map.get_many_mut([&BitSet::new(); 0]);
 
         Self {
             entity_id_counter: 0,
@@ -257,6 +270,7 @@ impl World {
             component_id_map: HashMap::new(),
             archetype_id_map: HashMap::new(),
             singletons: AnyMap::new(),
+            events: AnyMap::new(),
         }
     }
 
@@ -304,13 +318,45 @@ impl World {
 
     pub fn remove_entity<T: ComponentSet>(&mut self, entity_id: u64) -> Option<T> {
         for archetype in self.archetype_id_map.iter() {
-            if let Some(index) = archetype.1.entity_row_map.get(&entity_id) {
-                
-            }
+            if let Some(index) = archetype.1.entity_row_map.get(&entity_id) {}
         }
 
         return None;
     }
+
+    pub fn add_listener<T: WorldEventData + 'static>(&mut self, event: T, fun: fn(&mut World, &T)) {
+        // Hmm so I have to check if there is any world event already exists or not
+
+        if !self.events.contains::<WorldEvent<T>>() {
+            let world_event = WorldEvent::<T>::default();
+
+            self.events.insert(world_event);
+        }
+
+        let event = self.events.get_mut::<WorldEvent<T>>().unwrap();
+        event.listeners.push(fun);
+    }
+
+    pub fn remove_listener<T: WorldEventData + 'static>(&mut self, event: T, fun: fn(&mut World, &T)) {
+        if let Some(event) = self.events.get_mut::<WorldEvent<T>>() {
+            if let Some(index) = event.listeners.iter().position(|x| *x == fun) {
+                event.listeners.remove(index);
+            }
+        }
+    }
+
+    pub fn emit<T: WorldEventData + 'static>(&mut self, event_data: T) {
+        let vec = Vec::<fn(&mut World, &T)>::new();
+        
+        if let Some(event) = self.events.get_mut::<WorldEvent<T>>() {
+
+            // TODO HACK: It will allocate memory every time emit called
+            let listener_list = event.listeners.clone();
+
+            listener_list.iter().for_each(|fun| (fun)(self, &event_data));
+        }
+    }
+
 }
 
 pub struct Schedular<T: Hash + Eq + PartialEq + Copy + Clone, V> {

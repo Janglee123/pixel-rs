@@ -1,11 +1,15 @@
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    game::{resources::{
-        building_descriptor::BuildingDescriptor,
-        resource_stack::{self, GameResource, ResourceStack}, level_descriptors::{self, LevelDescriptor},
-    }, road},
-    math::honeycomb::{self, Hextor},
+    game::{
+        resources::{
+            building_descriptor::BuildingDescriptor,
+            level_descriptors::{self, LevelDescriptor},
+            resource_stack::{self, GameResource, ResourceStack},
+        },
+        road,
+    },
+    math::honeycomb::{self, Hextor}, ecs::world::WorldEventData,
 };
 
 pub struct InventoryManager {
@@ -183,6 +187,9 @@ impl Ground {
     }
 }
 
+pub struct TilesAddedEvent;
+impl WorldEventData for TilesAddedEvent {}
+
 #[derive(Clone)]
 pub struct Action {
     pub building: Option<BuildingInstance>,
@@ -248,6 +255,11 @@ pub struct BuildingPlaceQueryResult {
     // pub effects: HashMap<>
 }
 
+pub struct BuildingPlaceResult {
+    pub tiles_added: bool,
+    pub new_score: u16,
+}
+
 pub struct LevelManager {
     inventory: InventoryManager,
     stats: StatsManager,
@@ -258,9 +270,7 @@ pub struct LevelManager {
 }
 
 impl LevelManager {
-
     pub fn new(level_descriptor: &LevelDescriptor) -> Self {
-        
         let mut manager = Self {
             inventory: InventoryManager::new(),
             stats: StatsManager::new(),
@@ -271,11 +281,12 @@ impl LevelManager {
         };
 
         // unlock zero'th area noooo
-        
-        manager.ground.add_tiles(&level_descriptor.areas[0].tiles);
-        manager.inventory.add_items(&level_descriptor.areas[0].reward);
-        manager.roads.add_road(level_descriptor.starting_road);
 
+        manager.ground.add_tiles(&level_descriptor.areas[0].tiles);
+        manager
+            .inventory
+            .add_items(&level_descriptor.areas[0].reward);
+        manager.roads.add_road(level_descriptor.starting_road);
 
         manager
     }
@@ -399,7 +410,7 @@ impl LevelManager {
             && self.roads.is_connected_to_road(tile)
     }
 
-    pub fn place_road(&mut self, tile: Hextor) {
+    pub fn place_road(&mut self, tile: Hextor) -> BuildingPlaceResult {
         let action = Action {
             building: None,
             road: Some(tile),
@@ -409,12 +420,15 @@ impl LevelManager {
         };
 
         self.undo_redo.add_action(action);
+        self.roads.add_road(tile);
 
-        self.roads.add_road(tile)
+        BuildingPlaceResult {
+            tiles_added: false,
+            new_score: 0,
+        }
     }
 
     pub fn get_tiles(&self) -> &HashSet<Hextor> {
         &self.ground.tiles
     }
-
 }

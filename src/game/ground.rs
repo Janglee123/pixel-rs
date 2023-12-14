@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     app::Plugin,
     ecs::world::World,
+    game::core::{event_bus::GameEventBus, level_manager::TilesAddedEvent},
     math::{
         honeycomb::{Hextor, SpiralLoop},
         transform2d::{self, Transform2d},
@@ -16,16 +17,16 @@ use crate::{
             tilemap_renderer::{TileData, TileMap, TileMapBindGroupLayout},
         },
     },
-    zip, query_mut,
+    query_mut, zip,
 };
 
 use super::core::level_manager::LevelManager;
 
 pub struct GroundPlugin;
+pub struct Ground;
 
 impl Plugin for GroundPlugin {
     fn build(app: &mut crate::app::App) {
-        
         let bind_group_layout = app
             .world
             .singletons
@@ -44,25 +45,37 @@ impl Plugin for GroundPlugin {
             Arc::new(Mesh::get_hex_mesh()),
             texture,
         );
-        let transform2d = Transform2d::IDENTITY;
 
+        let transform2d = Transform2d::IDENTITY;
         let tile_size = Vector2::new(64.0, 64.0) * 2.0;
         tile_map.tile_size = tile_size;
 
+        app.world.insert_entity((tile_map, transform2d, Ground));
 
-        let level_manager = app.world.singletons.get::<LevelManager>().unwrap();
+        // let event_bus = app.world.singletons.get_mut::<GameEventBus>().unwrap();
 
-        for hexter in level_manager.get_tiles() {
-            let [x, y] = hexter.to_vector(tile_size.x * 0.5);
-            
-            let tile_data = TileData::new([x, y], [1.0, 1.0, 1.0]);
+        // event_bus.tiles_added.add_listener(on_tiles_added)
 
-            tile_map.tiles.push(tile_data);
-        }
-
-        println!("tiles count: {}", tile_map.tiles.len());
-
-        app.world.insert_entity((tile_map, transform2d));
-        
+        app.world.add_listener(TilesAddedEvent, on_tiles_added)
     }
+}
+
+pub fn on_tiles_added(world: &mut World, _: &TilesAddedEvent) {
+    println!("TILES ADDED EVENT RECEIVED");
+
+    let level_manager = world.singletons.get::<LevelManager>().unwrap();
+
+    let (tile_map, _) = query_mut!(world, TileMap, Ground).next().unwrap();
+
+    tile_map.tiles.clear();
+
+    for hexter in level_manager.get_tiles() {
+        let [x, y] = hexter.to_vector(tile_map.tile_size.x * 0.5);
+
+        let tile_data = TileData::new([x, y], [1.0, 1.0, 1.0]);
+
+        tile_map.tiles.push(tile_data);
+    }
+
+    println!("tiles count: {}", tile_map.tiles.len());
 }
