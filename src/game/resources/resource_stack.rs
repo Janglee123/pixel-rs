@@ -14,14 +14,14 @@ pub struct ResourceStack {
 }
 
 impl ResourceStack {
-    pub fn new(resource_type: GameResource, count: i16) -> Self {
+    pub const fn new(resource_type: GameResource, count: i16) -> Self {
         Self {
             resource_type,
             count,
         }
     }
 
-    pub fn resource_array(dood: i16, wood: i16, food: i16) -> [Self; 3] {
+    pub const fn resource_array(dood: i16, wood: i16, food: i16) -> [Self; 3] {
         [
             Self::new(GameResource::Dood, dood),
             Self::new(GameResource::Wood, wood),

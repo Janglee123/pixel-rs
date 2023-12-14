@@ -1,10 +1,10 @@
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    game::resources::{
+    game::{resources::{
         building_descriptor::BuildingDescriptor,
-        resource_stack::{self, GameResource, ResourceStack},
-    },
+        resource_stack::{self, GameResource, ResourceStack}, level_descriptors::{self, LevelDescriptor},
+    }, road},
     math::honeycomb::{self, Hextor},
 };
 
@@ -258,15 +258,26 @@ pub struct LevelManager {
 }
 
 impl LevelManager {
-    pub fn new() -> Self {
-        Self {
+    
+    pub fn new(level_descriptor: &LevelDescriptor) -> Self {
+        
+        let mut manager = Self {
             inventory: InventoryManager::new(),
             stats: StatsManager::new(),
             buildings: Buildings::new(),
             roads: Roads::new(),
             ground: Ground::new(),
             undo_redo: UndoRedo::new(),
-        }
+        };
+
+        // unlock zero'th area noooo
+        
+        manager.ground.add_tiles(&level_descriptor.areas[0].tiles);
+        manager.inventory.add_items(&level_descriptor.areas[0].reward);
+        manager.roads.add_road(level_descriptor.starting_road);
+
+
+        manager
     }
 
     pub fn undo(&mut self) {
