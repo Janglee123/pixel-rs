@@ -16,7 +16,7 @@ use plugins::{
         camera_plugin::CameraPlugin, input_plugin::InputPlugin, render_plugin::RenderPlugin,
         timer_plugin::TimerPlugin, window_plugin::WindowPlugin,
     },
-    renderer_plugins::{sprite_renderer::SpritePlugin, tilemap_renderer::TileMapRenderer, multi_instance_mesh_renderer::MultiInstanceMeshRenderer},
+    renderer_plugins::{sprite_renderer::SpritePlugin, tilemap_renderer::TileMapRenderer, multi_instance_mesh_renderer::MultiInstanceMeshRenderer}, other::tweener::TweenerPlugin,
 };
 use winit::event::MouseButton;
 
@@ -77,6 +77,7 @@ fn main() {
     app.register_plugin::<RenderPlugin>();
     app.register_plugin::<CameraPlugin>();
     app.register_plugin::<TimerPlugin>();
+    app.register_plugin::<TweenerPlugin>();
 
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();

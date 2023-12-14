@@ -258,7 +258,7 @@ pub struct LevelManager {
 }
 
 impl LevelManager {
-    
+
     pub fn new(level_descriptor: &LevelDescriptor) -> Self {
         
         let mut manager = Self {
@@ -412,4 +412,9 @@ impl LevelManager {
 
         self.roads.add_road(tile)
     }
+
+    pub fn get_tiles(&self) -> &HashSet<Hextor> {
+        &self.ground.tiles
+    }
+
 }

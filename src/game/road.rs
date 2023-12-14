@@ -114,8 +114,8 @@ impl Plugin for RoadPlugin {
                     crate::plugins::other::tweener::Easing::Linear,
                 );
 
-                app.world
-                    .insert_entity((transform2d, position_tweener, scale_tweener, multi_mesh));
+                // app.world
+                //     .insert_entity((transform2d, position_tweener, scale_tweener, multi_mesh));
 
                 // let color = [x, y, x - y];
 
