@@ -141,6 +141,7 @@ impl Renderer for SpritePlugin {
         render_pass.set_bind_group(2, &data.camera_bind_group, &[]);
 
         for (transform2d, quad) in query!(world, Transform2d, Quad) {
+
             gpu.queue.write_buffer(
                 &quad.transform_buffer,
                 0,
@@ -266,7 +267,7 @@ impl Plugin for SpritePlugin {
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: gpu.surface_config.format,
-                        blend: Some(wgpu::BlendState::REPLACE),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),

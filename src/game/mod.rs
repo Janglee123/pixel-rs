@@ -5,11 +5,13 @@ use self::core::level_manager::{self, LevelManager, RoadAddedEvent, TilesAddedEv
 use self::ground::GroundPlugin;
 use self::resources::level_descriptors::get_dummy_level;
 use self::road::RoadPlugin;
+use self::road_placer::RoadPlacerPlugin;
 
 mod core;
 mod ground;
 mod resources;
 mod road;
+mod road_placer;
 
 pub struct GamePlugin;
 
@@ -17,6 +19,7 @@ impl Plugin for GamePlugin {
     fn build(app: &mut crate::app::App) {
         app.register_plugin::<GroundPlugin>();
         app.register_plugin::<RoadPlugin>();
+        app.register_plugin::<RoadPlacerPlugin>();
 
         let level_descriptor = get_dummy_level();
         let level_manager = LevelManager::new(&level_descriptor);

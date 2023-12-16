@@ -79,7 +79,7 @@ fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
             let center_transform = Transform2d::new(
                 center_pos,
                 (neighbor_pos - center_pos).angle() as f32,
-                Vector2::new(64.0, 9.0),
+                Vector2::new(64.0, 16.0),
             );
 
             let center_instance = InstanceData::new(&center_transform, [1.0, 1.0, 1.0]);
@@ -87,7 +87,7 @@ fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
             let neighbor_transform = Transform2d::new(
                 neighbor_pos,
                 (center_pos - neighbor_pos).angle() as f32,
-                Vector2::new(64.0, 9.0),
+                Vector2::new(64.0, 16.0),
             );
 
             let neighbor_instance = InstanceData::new(&neighbor_transform, [1.0, 1.0, 1.0]);
