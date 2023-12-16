@@ -324,7 +324,7 @@ impl World {
         return None;
     }
 
-    pub fn add_listener<T: WorldEventData + 'static>(&mut self, event: T, fun: fn(&mut World, &T)) {
+    pub fn add_listener<T: WorldEventData + 'static>(&mut self, fun: fn(&mut World, &T)) {
         // Hmm so I have to check if there is any world event already exists or not
 
         if !self.events.contains::<WorldEvent<T>>() {
@@ -337,7 +337,7 @@ impl World {
         event.listeners.push(fun);
     }
 
-    pub fn remove_listener<T: WorldEventData + 'static>(&mut self, event: T, fun: fn(&mut World, &T)) {
+    pub fn remove_listener<T: WorldEventData + 'static>(&mut self, fun: fn(&mut World, &T)) {
         if let Some(event) = self.events.get_mut::<WorldEvent<T>>() {
             if let Some(index) = event.listeners.iter().position(|x| *x == fun) {
                 event.listeners.remove(index);

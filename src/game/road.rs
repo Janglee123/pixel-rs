@@ -4,8 +4,9 @@ use hashbrown::HashMap;
 
 use crate::{
     app::Plugin,
+    ecs::world::World,
     math::{
-        honeycomb::Hextor,
+        honeycomb::{Hextor, SpiralLoop},
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
@@ -20,113 +21,79 @@ use crate::{
             texture::Texture,
         },
     },
+    query_mut, zip,
 };
 
+use super::core::level_manager::{self, LevelManager, RoadAddedEvent};
+
 pub struct RoadPlugin;
-
-pub struct RoadTileData {
-    pub tile_pos: Hextor,
-    pub dir: Vec<u8>,
-}
-
-pub struct Roads {
-    roads: HashMap<Hextor, RoadTileData>,
-}
-
-impl Roads {
-    pub fn new() -> Self {
-        Self {
-            roads: HashMap::new(),
-        }
-    }
-}
+pub struct Roads;
 
 impl Plugin for RoadPlugin {
     fn build(app: &mut crate::app::App) {
-        app.world.singletons.insert(Roads::new());
+        let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
-        // let gpu = app.world.singletons.get::<Gpu>().unwrap();
+        let texture = Texture::from_bytes(gpu, include_bytes!("assets/road.png"), "road texture")
+            .ok()
+            .unwrap();
 
-        // let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "my texture")
-        //     .ok()
-        //     .unwrap();
+        let bind_group_layout = app
+            .world
+            .singletons
+            .get::<MultiInstanceMeshBindGroupLayout>()
+            .unwrap();
 
-        // let bind_group_layout = app
-        //     .world
-        //     .singletons
-        //     .get::<MultiInstanceMeshBindGroupLayout>()
-        //     .unwrap();
+        let multi_mesh = MultiInstanceMesh::new(
+            gpu,
+            &bind_group_layout,
+            Arc::new(Mesh::get_quad_mesh()),
+            texture,
+        );
 
-        // let mut multi_mesh = MultiInstanceMesh::new(
-        //     gpu,
-        //     &bind_group_layout,
-        //     Arc::new(Mesh::get_quad_mesh()),
-        //     texture,
-        // );
+        app.world
+            .insert_entity((multi_mesh, Roads, Transform2d::IDENTITY));
+        app.world.add_listener::<RoadAddedEvent>(on_road_added);
+    }
+}
 
-        for x in 0..10 {
-            let x = (x as f32 - 5.0) * 64.0;
+fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
+    let (multi_mesh, _) = query_mut!(world, MultiInstanceMesh, Roads).next().unwrap();
 
-            for y in 0..10 {
-                let y = (y as f32 - 5.0) * 64.0;
+    let level_manager = world.singletons.get::<LevelManager>().unwrap();
 
-                let gpu = app.world.singletons.get::<Gpu>().unwrap();
+    let center = data.new_road;
 
-                let texture =
-                    Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "my texture")
-                        .ok()
-                        .unwrap();
+    let center_pos: Vector2<f32> = center.to_vector(32.0).into();
 
-                let bind_group_layout = app
-                    .world
-                    .singletons
-                    .get::<MultiInstanceMeshBindGroupLayout>()
-                    .unwrap();
-
-                let mut multi_mesh = MultiInstanceMesh::new(
-                    gpu,
-                    &bind_group_layout,
-                    Arc::new(Mesh::get_quad_mesh()),
-                    texture,
-                );
-
-                multi_mesh
-                    .instances
-                    .push(InstanceData::new(&Transform2d::IDENTITY, [1.0, 1.0, 1.0]));
-
-                let transform2d = Transform2d::new(
-                    Vector2::new(x, y),
-                    x + y,
-                    Vector2::new(64.0, 64.0), // Vector2::new(64.0, 64.0)
-                );
-
-                let position_tweener = PositionTweener::new(
-                    Vector2::new((x + y).cos() * 400.0, y.cos() * 400.0), 
-                    Vector2::new(x.sin() * 400.0, (x-y).sin() * 400.0), 
-                    1.5 + 0.5 * (x - y).cos().abs(),
-                    crate::plugins::other::tweener::Easing::Linear,
-                );
-
-                let scale_tweener = ScaleTweener::new(
-                    Vector2::new(0.0, 0.0),
-                    Vector2::new(y.sin() * 64.0, x.sin() * 64.0), 
-                    1.5 + 0.5 * (x + y).sin().abs(),
-                    crate::plugins::other::tweener::Easing::Linear,
-                );
-
-                // app.world
-                //     .insert_entity((transform2d, position_tweener, scale_tweener, multi_mesh));
-
-                // let color = [x, y, x - y];
-
-                // multi_mesh
-                //     .instances
-                //     .push(InstanceData::new(&transform2d, color));
+    for neighbor in SpiralLoop::new(center, 1) {
+        if level_manager.is_road(&neighbor) {
+            if neighbor == center {
+                continue;
             }
+
+            let neighbor_pos: Vector2<f32> = neighbor.to_vector(32.0).into();
+
+            // add tile for center tile
+            // get position
+            // get rotation
+            let center_transform = Transform2d::new(
+                center_pos,
+                (neighbor_pos - center_pos).angle() as f32,
+                Vector2::new(64.0, 9.0),
+            );
+
+            let center_instance = InstanceData::new(&center_transform, [1.0, 1.0, 1.0]);
+
+            let neighbor_transform = Transform2d::new(
+                neighbor_pos,
+                (center_pos - neighbor_pos).angle() as f32,
+                Vector2::new(64.0, 9.0),
+            );
+
+            let neighbor_instance = InstanceData::new(&neighbor_transform, [1.0, 1.0, 1.0]);
+
+            multi_mesh.instances.push(center_instance);
+            multi_mesh.instances.push(neighbor_instance);
         }
-
-        // let transform2d = Transform2d::IDENTITY;
-
-        // app.world.insert_entity((multi_mesh, transform2d));
     }
 }

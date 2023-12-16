@@ -12,6 +12,12 @@ pub enum ButtonState {
 }
 
 #[derive(Default, Debug)]
+pub struct MousePosition {
+    pub world_position: Vector2<f32>,
+    pub screen_position: Vector2<f32>,
+}
+
+#[derive(Default, Debug)]
 pub struct MouseMotion {
     pub delta: Vector2<f32>,
 }
@@ -27,11 +33,16 @@ pub struct Input {
     mouse_input: HashMap<MouseButton, MouseButtonInput>,
     keyboard_input: HashMap<VirtualKeyCode, KeyboardInput>,
     mouse_motion: MouseMotion,
+    mouse_position: MousePosition,
 }
 
 impl Input {
     pub fn on_mouse_input(&mut self, input: MouseButtonInput) {
         self.mouse_input.insert(input.button, input);
+    }
+
+    pub fn on_curser_moved(&mut self, cursor_pos: Vector2<f32>) {
+        self.mouse_position.screen_position = cursor_pos;
     }
 
     pub fn on_keyboard_input(&mut self, input: KeyboardInput) {
@@ -80,5 +91,8 @@ impl Plugin for InputPlugin {
 pub fn print_input_keys(world: &mut World) {
     let input = world.singletons.get_mut::<Input>().unwrap();
 
-    println!("input: {:?}", input.is_mouse_button_pressed(MouseButton::Left));
+    println!(
+        "input: {:?}",
+        input.is_mouse_button_pressed(MouseButton::Left)
+    );
 }

@@ -58,6 +58,7 @@ pub struct Quad {
     transform_bind_group: wgpu::BindGroup,
     texture_bind_group: wgpu::BindGroup,
     texture: texture::Texture, //Todo: Asset manager
+    size: Vector2<u32>,
 }
 
 impl Quad {
@@ -69,6 +70,7 @@ impl Quad {
         transform_bind_group_layout: &BindGroupLayout,
         texture_bind_group_layout: &BindGroupLayout,
         texture: Texture,
+        size: Vector2<u32>,
     ) -> Self {
         let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
@@ -106,6 +108,7 @@ impl Quad {
             transform_bind_group,
             texture_bind_group,
             texture,
+            size,
         }
     }
 }
@@ -311,40 +314,6 @@ impl Plugin for SpritePlugin {
             camera_bind_group,
             camera_buffer,
         };
-
-        let transform2d = Transform2d {
-            position: Vector2 { x: 20.0, y: 20.0 },
-            rotation: 0.0,
-            scale: Vector2 { x: 64.0, y: 64.0 }, // Why scale is not matching with pixes??
-        };
-
-        // let transform2d2 = Transform2d {
-        //     position: Vector2 { x: -0.5, y: -0.5 },
-        //     rotation: 0.0,
-        //     scale: Vector2 { x: 0.2, y: 0.3 },
-        // };
-
-        // let quad1 = Quad::new(
-        //     &gpu.device,
-        //     &triangle_renderer_data.transform_bind_group_layout,
-        // );
-
-        let texture = Texture::from_bytes(
-            gpu,
-            include_bytes!("../../game/assets/grass.png"),
-            "my texture",
-        )
-        .ok()
-        .unwrap();
-
-        let quad = Quad::new(
-            &gpu.device,
-            &sprite_renderer_data.transform_bind_group_layout,
-            &sprite_renderer_data.texture_bind_group_layout,
-            texture,
-        );
-
-        // app.world.insert_entity((transform2d, quad));
 
         app.renderers.push(Box::new(SpritePlugin {}));
 

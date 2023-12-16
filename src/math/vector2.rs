@@ -1,8 +1,9 @@
 use super::is_zero::IsZero;
 use core::num;
 use std::{
+    iter::Once,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
-    process::Output, iter::Once,
+    process::Output,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash, Default)]
@@ -401,5 +402,22 @@ impl Vector2<f64> {
             x: angle.cos(),
             y: angle.sin(),
         }
+    }
+}
+
+impl<
+        T: Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>
+            + IsZero
+            + Into<f64>
+            + DivAssign
+            + Copy
+            + PartialEq,
+    > Into<Vector2<T>> for [T; 2]
+{
+    fn into(self) -> Vector2<T> {
+        Vector2::new(self[0], self[1])
     }
 }

@@ -67,6 +67,10 @@ impl App {
         self.schedular.run(SystemStage::Input, &mut self.world);
     }
 
+    pub fn on_curser_moved(&mut self) {
+        // Nothing to do??
+    }
+
     pub fn register_plugin<T: Plugin>(&mut self) {
         T::build(self);
     }

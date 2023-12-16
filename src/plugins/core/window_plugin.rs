@@ -4,7 +4,10 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use crate::app::{App, Plugin};
+use crate::{
+    app::{App, Plugin},
+    math::vector2::Vector2,
+};
 
 use super::input_plugin::{Input, MouseButtonInput};
 
@@ -35,6 +38,11 @@ fn runner(mut app: App) {
                     let input = MouseButtonInput { button, state };
                     on_mouse_input(&mut app, input);
                 }
+                WindowEvent::CursorMoved {
+                    device_id,
+                    position,
+                    ..
+                } => {}
                 _ => (),
             },
 
@@ -44,7 +52,14 @@ fn runner(mut app: App) {
     });
 }
 
+fn on_curser_moved(app: &mut App, cursor_pos: Vector2<f32>) {
+    let input = app.world.singletons.get_mut::<Input>().unwrap();
+    input.on_curser_moved(cursor_pos);
+}
+
 fn on_mouse_input(app: &mut App, mouse_input: MouseButtonInput) {
+    // Why accessing input here??
+
     let input = app.world.singletons.get_mut::<Input>().unwrap();
     input.on_mouse_input(mouse_input);
     app.on_mouse_input();

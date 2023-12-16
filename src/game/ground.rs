@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     app::Plugin,
     ecs::world::World,
-    game::core::{event_bus::GameEventBus, level_manager::TilesAddedEvent},
+    game::core::{level_manager::TilesAddedEvent},
     math::{
         honeycomb::{Hextor, SpiralLoop},
         transform2d::{self, Transform2d},
@@ -35,7 +35,7 @@ impl Plugin for GroundPlugin {
 
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
-        let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "my texture")
+        let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "grass texture")
             .ok()
             .unwrap();
 
@@ -47,16 +47,12 @@ impl Plugin for GroundPlugin {
         );
 
         let transform2d = Transform2d::IDENTITY;
-        let tile_size = Vector2::new(64.0, 64.0) * 2.0;
+        let tile_size = Vector2::new(64.0, 64.0);
         tile_map.tile_size = tile_size;
 
         app.world.insert_entity((tile_map, transform2d, Ground));
+        app.world.add_listener::<TilesAddedEvent>(on_tiles_added);
 
-        // let event_bus = app.world.singletons.get_mut::<GameEventBus>().unwrap();
-
-        // event_bus.tiles_added.add_listener(on_tiles_added)
-
-        app.world.add_listener(TilesAddedEvent, on_tiles_added)
     }
 }
 

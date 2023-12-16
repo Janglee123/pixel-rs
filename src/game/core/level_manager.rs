@@ -190,6 +190,12 @@ impl Ground {
 pub struct TilesAddedEvent;
 impl WorldEventData for TilesAddedEvent {}
 
+pub struct RoadAddedEvent {
+    pub new_road: Hextor
+}
+
+impl WorldEventData for RoadAddedEvent {}
+
 #[derive(Clone)]
 pub struct Action {
     pub building: Option<BuildingInstance>,
@@ -430,5 +436,9 @@ impl LevelManager {
 
     pub fn get_tiles(&self) -> &HashSet<Hextor> {
         &self.ground.tiles
+    }
+
+    pub fn is_road(&self, tile: &Hextor) -> bool {
+        !self.roads.is_empty(tile)
     }
 }
