@@ -1,5 +1,9 @@
+#![allow(warnings)]
+
 use std::{
     any::{Any, TypeId},
+    borrow::BorrowMut,
+    cell::{Cell, RefCell},
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     rc::Rc,
@@ -13,12 +17,23 @@ use app::App;
 use ecs::world::{self, *};
 use plugins::{
     core::{
-        camera_plugin::CameraPlugin, input_plugin::InputPlugin, render_plugin::RenderPlugin,
-        timer_plugin::TimerPlugin, window_plugin::WindowPlugin,
+        asset_storage::{self, Asset},
+        // asset_storage::{self, Asset, AssetStorage},
+        camera_plugin::CameraPlugin,
+        input_plugin::InputPlugin,
+        render_plugin::RenderPlugin,
+        timer_plugin::TimerPlugin,
+        window_plugin::WindowPlugin,
     },
-    renderer_plugins::{sprite_renderer::SpritePlugin, tilemap_renderer::TileMapRenderer, multi_instance_mesh_renderer::MultiInstanceMeshRenderer}, other::tweener::TweenerPlugin,
+    other::tweener::TweenerPlugin,
+    renderer_plugins::{
+        multi_instance_mesh_renderer::MultiInstanceMeshRenderer, sprite_renderer::SpritePlugin,
+        tilemap_renderer::TileMapRenderer,
+    },
 };
 use winit::event::MouseButton;
+
+use crate::plugins::core::asset_storage::AssetStorage;
 
 mod app;
 mod ecs;
@@ -36,6 +51,12 @@ struct Bar {
     bar: u8,
 }
 
+impl Asset for Bar {
+    fn from_binary(binary: Vec<u8>) -> Self {
+        todo!()
+    }
+}
+
 fn system(world: &mut World) {
     for bar in query_mut!(world, Bar) {
         println!("{}", bar.bar);
@@ -44,30 +65,6 @@ fn system(world: &mut World) {
 
 fn main() {
     env_logger::init();
-
-    // let mut world = World::new();
-
-    // world.insert_entity((Bar { bar: 1 },));
-    // world.insert_entity((Bar { bar: 1 },));
-    // world.insert_entity((Bar { bar: 1 },));
-    // world.insert_entity((Bar { bar: 1 },));
-    // world.insert_entity((Bar { bar: 1 },));
-
-    // world.insert_entity((Foo { foo: 1 },));
-    // world.insert_entity((Foo { foo: 1 },));
-    // world.insert_entity((Foo { foo: 1 },));
-    // world.insert_entity((Foo { foo: 1 },));
-    // world.insert_entity((Foo { foo: 1 },));
-
-    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
-    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
-    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
-    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
-    // world.insert_entity((Foo {foo: 0}, Bar{bar: 0}));
-
-    // for (bar, foo) in query!(&world, Bar, Foo) {
-    //     println!("{:?} {:?}", bar, foo);
-    // }
 
     let mut app = App::new();
 
@@ -82,7 +79,7 @@ fn main() {
     // Rendering plugins
     app.register_plugin::<TileMapRenderer>();
     app.register_plugin::<SpritePlugin>();
-    app.register_plugin::<MultiInstanceMeshRenderer>(); 
+    app.register_plugin::<MultiInstanceMeshRenderer>();
 
     // Game
     // Game related plugins are added into [game/mod.rs]

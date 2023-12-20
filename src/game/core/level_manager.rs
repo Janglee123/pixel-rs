@@ -1,6 +1,7 @@
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
+    ecs::world::WorldEventData,
     game::{
         resources::{
             building_descriptor::BuildingDescriptor,
@@ -9,7 +10,7 @@ use crate::{
         },
         road,
     },
-    math::honeycomb::{self, Hextor}, ecs::world::WorldEventData,
+    math::honeycomb::{self, Hextor},
 };
 
 pub struct InventoryManager {
@@ -191,7 +192,7 @@ pub struct TilesAddedEvent;
 impl WorldEventData for TilesAddedEvent {}
 
 pub struct RoadAddedEvent {
-    pub new_road: Hextor
+    pub new_road: Hextor,
 }
 
 impl WorldEventData for RoadAddedEvent {}
@@ -411,7 +412,8 @@ impl LevelManager {
     }
 
     pub fn can_place_road(&self, tile: &Hextor) -> bool {
-        self.buildings.is_empty(tile)
+        self.ground.has_tile(tile)
+            && self.buildings.is_empty(tile)
             && self.roads.is_empty(tile)
             && self.roads.is_connected_to_road(tile)
     }

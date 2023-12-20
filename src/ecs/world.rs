@@ -95,7 +95,7 @@ impl<T: Component> ComponentVec<T> {
 
 #[derive(Debug)]
 pub struct TypelessComponentVec {
-    list: Box<dyn Any>,
+    list: Box<dyn Any>, // So inside archetype lists are not stored together how nice ecs
 }
 
 impl TypelessComponentVec {
