@@ -7,12 +7,17 @@ use crate::{
     app::Plugin,
     ecs::world::{Component, World},
     math::{
+        color::Color,
         transform2d::{self, Matrix3, Transform2d},
         vector2::Vector2,
     },
-    plugins::core::{
-        camera_plugin::Camera,
-        render_plugin::{Gpu, Renderer},
+    plugins::{
+        asset_types::image::Image,
+        core::{
+            asset_storage::AssetRef,
+            camera_plugin::Camera,
+            render_plugin::{Gpu, Renderer},
+        },
     },
     query, query_mut, zip,
 };
@@ -48,7 +53,6 @@ pub struct SpriteRendererData {
     pub vertex_buffer: Buffer,
     index_buffer: Buffer,
     pub transform_bind_group_layout: BindGroupLayout, // Hmm I really need to think about how to write a render stuff
-    pub texture_bind_group_layout: BindGroupLayout,
     camera_bind_group: wgpu::BindGroup,
     camera_buffer: Buffer,
 }
@@ -141,7 +145,6 @@ impl Renderer for SpritePlugin {
         render_pass.set_bind_group(2, &data.camera_bind_group, &[]);
 
         for (transform2d, quad) in query!(world, Transform2d, Quad) {
-
             gpu.queue.write_buffer(
                 &quad.transform_buffer,
                 0,
@@ -213,31 +216,31 @@ impl Plugin for SpritePlugin {
             }],
         });
 
-        let texture_bind_group_layout =
-            gpu.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            // This should match the filterable field of the
-                            // corresponding Texture entry above.
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                    label: Some("texture_bind_group_layout"),
-                });
+        // let texture_bind_group_layout =
+        //     gpu.device
+        //         .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        //             entries: &[
+        //                 wgpu::BindGroupLayoutEntry {
+        //                     binding: 0,
+        //                     visibility: wgpu::ShaderStages::FRAGMENT,
+        //                     ty: wgpu::BindingType::Texture {
+        //                         multisampled: false,
+        //                         view_dimension: wgpu::TextureViewDimension::D2,
+        //                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
+        //                     },
+        //                     count: None,
+        //                 },
+        //                 wgpu::BindGroupLayoutEntry {
+        //                     binding: 1,
+        //                     visibility: wgpu::ShaderStages::FRAGMENT,
+        //                     // This should match the filterable field of the
+        //                     // corresponding Texture entry above.
+        //                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        //                     count: None,
+        //                 },
+        //             ],
+        //             label: Some("texture_bind_group_layout"),
+        //         });
 
         let render_pipeline_layout =
             gpu.device
@@ -245,7 +248,7 @@ impl Plugin for SpritePlugin {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
                         &transform_bind_group_layout,
-                        &texture_bind_group_layout,
+                        &gpu.texture_bind_group_layout, // I need this in render pipeline noice
                         &camera_bind_group_layout,
                     ],
                     push_constant_ranges: &[],
@@ -311,7 +314,6 @@ impl Plugin for SpritePlugin {
             vertex_buffer,
             index_buffer,
             transform_bind_group_layout, // Why we have transform bind group layout here
-            texture_bind_group_layout,
             camera_bind_group,
             camera_buffer,
         };
@@ -320,5 +322,16 @@ impl Plugin for SpritePlugin {
 
         app.world.register_component::<Quad>();
         app.world.singletons.insert(sprite_renderer_data);
+    }
+}
+
+pub struct Sprite {
+    image: AssetRef<Image>,
+    color: Color,
+}
+
+impl Sprite {
+    pub fn new(image: AssetRef<Image>, color: Color) -> Self {
+        Self { image, color }
     }
 }

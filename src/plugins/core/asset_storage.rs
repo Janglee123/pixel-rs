@@ -31,6 +31,10 @@ impl<T: Asset> AssetRef<T> {
             counter,
         }
     }
+
+    pub fn get_id(&self) -> u64 {
+        self.id
+    }
 }
 
 impl<T: Asset> Drop for AssetRef<T> {
@@ -51,6 +55,16 @@ impl AssetStorage {
             data: HashMap::new(),
             ref_counters: HashMap::new(),
         }
+    }
+
+    pub fn insert<T: Asset + 'static>(&mut self, asset: T, id: u64) -> bool {
+        if !self.data.contains_key(&id) {
+            self.data.insert(id, Box::new(asset));
+
+            return true;
+        }
+
+        return false;
     }
 
     pub fn get<T: Asset + 'static>(&mut self, path: String) -> Option<AssetRef<T>> {

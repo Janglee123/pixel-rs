@@ -35,22 +35,22 @@ impl Plugin for GroundPlugin {
 
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
-        let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "grass texture")
-            .ok()
-            .unwrap();
+        // let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "grass texture")
+        //     .ok()
+        //     .unwrap();
 
-        let mut tile_map = TileMap::new(
-            gpu,
-            &bind_group_layout.bind_group_layout,
-            Arc::new(Mesh::get_hex_mesh()),
-            texture,
-        );
+        // let mut tile_map = TileMap::new(
+        //     gpu,
+        //     &bind_group_layout.bind_group_layout,
+        //     Arc::new(Mesh::get_hex_mesh()),
+        //     texture,
+        // );
 
         let transform2d = Transform2d::IDENTITY;
         let tile_size = Vector2::new(64.0, 64.0);
-        tile_map.tile_size = tile_size;
+        // tile_map.tile_size = tile_size;
 
-        app.world.insert_entity((tile_map, transform2d, Ground));
+        // app.world.insert_entity((tile_map, transform2d, Ground));
         app.world.add_listener::<TilesAddedEvent>(on_tiles_added);
 
     }

@@ -26,23 +26,23 @@ impl Plugin for RoadPlacerPlugin {
     fn build(app: &mut crate::app::App) {
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
-        let texture = Texture::from_bytes(
-            gpu,
-            include_bytes!("assets/selector.png"),
-            "selector texture",
-        )
-        .ok()
-        .unwrap();
+        // let texture = Texture::from_bytes(
+        //     gpu,
+        //     include_bytes!("assets/selector.png"),
+        //     "selector texture",
+        // )
+        // .ok()
+        // .unwrap();
 
         let sprite_renderer_data = app.world.singletons.get::<SpriteRendererData>().unwrap();
 
-        let sprite = Quad::new(
-            &gpu.device,
-            &sprite_renderer_data.transform_bind_group_layout,
-            &sprite_renderer_data.texture_bind_group_layout,
-            texture,
-            Vector2::new(32, 32),
-        );
+        // let sprite = Quad::new(
+        //     &gpu.device,
+        //     &sprite_renderer_data.transform_bind_group_layout,
+        //     &sprite_renderer_data.texture_bind_group_layout,
+        //     texture,
+        //     Vector2::new(32, 32),
+        // );
 
         let mut transform2d = Transform2d::IDENTITY;
         transform2d.scale = Vector2::new(32.0, 32.0);
@@ -51,7 +51,7 @@ impl Plugin for RoadPlacerPlugin {
             current_pos: Hextor::new(0, 0),
         };
 
-        app.world.insert_entity((sprite, transform2d, road_placer));
+        // app.world.insert_entity((sprite, transform2d, road_placer));
         app.schedular
             .add_system(crate::app::SystemStage::Input, on_input);
     }

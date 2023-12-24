@@ -1,6 +1,7 @@
-use std::{rc::Rc, string, sync::Arc};
+use std::{num::NonZeroU32, rc::Rc, string, sync::Arc};
 
 use bytemuck::{Pod, Zeroable};
+use hashbrown::HashMap;
 use wgpu::{
     include_wgsl, util::DeviceExt, CommandEncoder, Device, DeviceDescriptor, Queue, RenderPass,
     RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture,
@@ -10,6 +11,7 @@ use winit::window::Window;
 use crate::{
     app::{App, Plugin},
     ecs::world::{self, World},
+    plugins::renderer_plugins::texture::Texture,
 };
 
 pub trait Renderer {
@@ -25,6 +27,84 @@ pub struct Gpu {
     pub queue: Queue,
     pub device: Device,
     pub surface_config: wgpu::SurfaceConfiguration,
+
+    pub texture_bing_group_map: HashMap<u64, wgpu::BindGroup>, // Why bind group and not texture buffer??
+    pub texture_map: HashMap<u64, Texture>,
+    pub texture_bind_group_layout: wgpu::BindGroupLayout, // Sprite render needs this
+}
+
+impl Gpu {
+    pub fn create_texture(&mut self, id: u64, label: &str, data: &[u8], width: u32, height: u32) {
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        });
+
+        let image_copy_texture = wgpu::ImageCopyTexture {
+            aspect: wgpu::TextureAspect::All,
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        };
+
+        let image_data_layout = wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row: NonZeroU32::new(4 * width),
+            rows_per_image: NonZeroU32::new(height),
+        };
+
+        self.queue
+            .write_texture(image_copy_texture, data, image_data_layout, size);
+
+        // Todo: I think there is no need to make it again and again
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let texture = Texture {
+            texture,
+            view,
+            sampler,
+        };
+
+        let texture_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Texture bind group"),
+            layout: &self.texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                },
+            ],
+        });
+
+        self.texture_map.insert(id, texture);
+        self.texture_bing_group_map.insert(id, texture_bind_group);
+
+        // Now I need to create a bind group
+    }
 }
 
 pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
@@ -123,11 +203,39 @@ impl Plugin for RenderPlugin {
 
         surface.configure(&device, &surface_config);
 
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        // This should match the filterable field of the
+                        // corresponding Texture entry above.
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
         let gpu = Gpu {
             surface,
             queue,
             device,
             surface_config,
+            texture_bing_group_map: HashMap::new(),
+            texture_map: HashMap::new(),
+            texture_bind_group_layout,
         };
 
         app.set_renderer(render_function);

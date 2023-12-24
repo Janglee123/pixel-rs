@@ -33,9 +33,9 @@ impl Plugin for RoadPlugin {
     fn build(app: &mut crate::app::App) {
         let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
-        let texture = Texture::from_bytes(gpu, include_bytes!("assets/road.png"), "road texture")
-            .ok()
-            .unwrap();
+        // let texture = Texture::from_bytes(gpu, include_bytes!("assets/road.png"), "road texture")
+        //     .ok()
+        //     .unwrap();
 
         let bind_group_layout = app
             .world
@@ -43,15 +43,15 @@ impl Plugin for RoadPlugin {
             .get::<MultiInstanceMeshBindGroupLayout>()
             .unwrap();
 
-        let multi_mesh = MultiInstanceMesh::new(
-            gpu,
-            &bind_group_layout,
-            Arc::new(Mesh::get_quad_mesh()),
-            texture,
-        );
+        // let multi_mesh = MultiInstanceMesh::new(
+        //     gpu,
+        //     &bind_group_layout,
+        //     Arc::new(Mesh::get_quad_mesh()),
+        //     texture,
+        // );
 
-        app.world
-            .insert_entity((multi_mesh, Roads, Transform2d::IDENTITY));
+        // app.world
+        //     .insert_entity((multi_mesh, Roads, Transform2d::IDENTITY));
         app.world.add_listener::<RoadAddedEvent>(on_road_added);
     }
 }
