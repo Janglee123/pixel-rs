@@ -3,7 +3,9 @@ use std::{num::NonZeroU32, rc::Rc, string, sync::Arc};
 use bytemuck::{Pod, Zeroable};
 use hashbrown::HashMap;
 use wgpu::{
-    include_wgsl, util::DeviceExt, CommandEncoder, Device, DeviceDescriptor, Queue, RenderPass,
+    include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
+    BindGroup, BindGroupDescriptor, CommandEncoder, Device, DeviceDescriptor, Queue, RenderPass,
     RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceTexture,
 };
 use winit::window::Window;
@@ -31,6 +33,10 @@ pub struct Gpu {
     pub texture_bing_group_map: HashMap<u64, wgpu::BindGroup>, // Why bind group and not texture buffer??
     pub texture_map: HashMap<u64, Texture>,
     pub texture_bind_group_layout: wgpu::BindGroupLayout, // Sprite render needs this
+
+    draw_index_buffers: [wgpu::Buffer; 512],
+    draw_index_bing_group: [wgpu::BindGroup; 512],
+    pub draw_index_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl Gpu {
@@ -104,6 +110,10 @@ impl Gpu {
         self.texture_bing_group_map.insert(id, texture_bind_group);
 
         // Now I need to create a bind group
+    }
+
+    pub fn get_draw_index_bind_group(&self, index: usize) -> &wgpu::BindGroup {
+        &self.draw_index_bing_group[index]
     }
 }
 
@@ -228,6 +238,44 @@ impl Plugin for RenderPlugin {
                 label: Some("texture_bind_group_layout"),
             });
 
+        let draw_index_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Draw index bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let mut draw_index_buffers = Vec::with_capacity(512);
+        let mut draw_index_bing_group = Vec::with_capacity(512);
+
+        for i in 0..512 {
+            draw_index_buffers.push(device.create_buffer_init(&BufferInitDescriptor {
+                label: Some(format!("Draw index {i} buffer").as_str()),
+                contents: bytemuck::cast_slice(&[i]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }));
+
+            draw_index_bing_group.push(device.create_bind_group(&BindGroupDescriptor {
+                label: Some(format!("Draw index {i} bind group").as_str()),
+                layout: &draw_index_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: draw_index_buffers[i].as_entire_binding(),
+                }],
+            }));
+        }
+
+        let draw_index_buffers = draw_index_buffers.try_into().unwrap();
+        let draw_index_bing_group = draw_index_bing_group.try_into().unwrap();
+
         let gpu = Gpu {
             surface,
             queue,
@@ -236,6 +284,10 @@ impl Plugin for RenderPlugin {
             texture_bing_group_map: HashMap::new(),
             texture_map: HashMap::new(),
             texture_bind_group_layout,
+
+            draw_index_bind_group_layout,
+            draw_index_buffers,
+            draw_index_bing_group,
         };
 
         app.set_renderer(render_function);
