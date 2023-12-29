@@ -13,6 +13,8 @@ pub enum SystemStage {
     PreInput,
     Input,
     PreUpdate,
+
+    PreRender,
     Render,
 }
 
@@ -47,6 +49,7 @@ impl App {
         self.schedular.run(SystemStage::PreUpdate, &mut self.world);
         self.schedular.run(SystemStage::Update, &mut self.world);
 
+        self.schedular.run(SystemStage::PreRender, &mut self.world);
         let fun = self.render_function;
         let world = &mut self.world;
 

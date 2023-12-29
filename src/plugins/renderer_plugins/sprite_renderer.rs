@@ -1,5 +1,9 @@
 use bytemuck::{Pod, Zeroable};
-use std::time::{SystemTime, UNIX_EPOCH};
+use hashbrown::HashMap;
+use std::{
+    ops::{Range, RangeBounds},
+    time::{SystemTime, UNIX_EPOCH},
+};
 use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, Buffer, Device, RenderPipeline};
 use winit::window::Window;
 
@@ -52,9 +56,45 @@ pub struct SpriteRendererData {
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
     index_buffer: Buffer,
-    pub transform_bind_group_layout: BindGroupLayout, // Hmm I really need to think about how to write a render stuff
+
+    sprite_data_bind_group: wgpu::BindGroup, // Hmm I really need to think about how to write a render stuff
+    sprite_data_buffer: wgpu::Buffer,
+
     camera_bind_group: wgpu::BindGroup,
     camera_buffer: Buffer,
+
+    texture_id_transform_list_cache: HashMap<u64, Vec<SpriteData>>,
+    sprite_data_list: Vec<SpriteData>,
+    texture_id_range: Vec<TextureDrawData>,
+}
+
+struct TextureDrawData {
+    range: Range<u32>,
+    texture_id: u64,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
+struct SpriteData {
+    color: [f32; 3],
+    _padding: u32,
+    matrix: Matrix3,
+}
+
+impl SpriteData {
+    fn new(color: [f32; 3], matrix: Matrix3) -> Self {
+        Self {
+            color,
+            _padding: 0,
+            matrix,
+        }
+    }
+
+    const EMPTY: SpriteData = SpriteData {
+        color: [0.0; 3],
+        _padding: 0,
+        matrix: Matrix3::IDENTITY,
+    };
 }
 
 pub struct Quad {
@@ -66,9 +106,6 @@ pub struct Quad {
 }
 
 impl Quad {
-    // What I want is that quad does not store buffers? No
-    // What I want is that creating a quad should be easier? Then another creator can do it
-    // What I want is that I do not have to duplicate textures? Do I need it now? Nope
     pub fn new(
         device: &Device,
         transform_bind_group_layout: &BindGroupLayout,
@@ -142,19 +179,26 @@ impl Renderer for SpritePlugin {
         gpu.queue
             .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
 
+        gpu.queue.write_buffer(
+            &data.sprite_data_buffer,
+            0,
+            bytemuck::cast_slice(&data.sprite_data_list),
+        );
+
+        render_pass.set_bind_group(0, &data.sprite_data_bind_group, &[]);
         render_pass.set_bind_group(2, &data.camera_bind_group, &[]);
 
-        for (transform2d, quad) in query!(world, Transform2d, Quad) {
-            gpu.queue.write_buffer(
-                &quad.transform_buffer,
-                0,
-                bytemuck::cast_slice(&[transform2d.create_matrix()]),
+        for TextureDrawData { range, texture_id } in &data.texture_id_range {
+            
+            println!(
+                "[Draw call] range: {:?} texture_id: {:?} ",
+                range, texture_id
             );
 
-            render_pass.set_bind_group(0, &quad.transform_bind_group, &[]);
-            render_pass.set_bind_group(1, &quad.texture_bind_group, &[]);
+            let texture_group = gpu.texture_bing_group_map.get(texture_id).unwrap();
+            render_pass.set_bind_group(1, texture_group, &[]);
 
-            render_pass.draw_indexed(0..6, 0, 0..1);
+            render_pass.draw_indexed(0..6, 0, range.clone());
         }
     }
 }
@@ -166,22 +210,6 @@ impl Plugin for SpritePlugin {
         let shader = gpu
             .device
             .create_shader_module(include_wgsl!("sprite_shader.wgsl"));
-
-        let transform_bind_group_layout =
-            gpu.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: None,
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                });
 
         let camera_bind_group_layout =
             gpu.device
@@ -216,39 +244,48 @@ impl Plugin for SpritePlugin {
             }],
         });
 
-        // let texture_bind_group_layout =
-        //     gpu.device
-        //         .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        //             entries: &[
-        //                 wgpu::BindGroupLayoutEntry {
-        //                     binding: 0,
-        //                     visibility: wgpu::ShaderStages::FRAGMENT,
-        //                     ty: wgpu::BindingType::Texture {
-        //                         multisampled: false,
-        //                         view_dimension: wgpu::TextureViewDimension::D2,
-        //                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
-        //                     },
-        //                     count: None,
-        //                 },
-        //                 wgpu::BindGroupLayoutEntry {
-        //                     binding: 1,
-        //                     visibility: wgpu::ShaderStages::FRAGMENT,
-        //                     // This should match the filterable field of the
-        //                     // corresponding Texture entry above.
-        //                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-        //                     count: None,
-        //                 },
-        //             ],
-        //             label: Some("texture_bind_group_layout"),
-        //         });
+        let sprite_data_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Sprite data buffer"),
+                contents: bytemuck::cast_slice(
+                    &[SpriteData::EMPTY; 512], // Lets assume there wont be more than 512 instance of
+                ),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+
+        let sprite_data_bind_group_layout =
+            gpu.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("sprite_data_bind_group_layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
+
+        let sprite_data_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Sprite data bind group"),
+            layout: &sprite_data_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: sprite_data_buffer.as_entire_binding(),
+            }],
+        });
 
         let render_pipeline_layout =
             gpu.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &transform_bind_group_layout,
-                        &gpu.texture_bind_group_layout, // I need this in render pipeline noice
+                        &sprite_data_bind_group_layout,
+                        &gpu.texture_bind_group_layout,
                         &camera_bind_group_layout,
                     ],
                     push_constant_ranges: &[],
@@ -257,7 +294,7 @@ impl Plugin for SpritePlugin {
         let render_pipeline = gpu
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render Pipeline"),
+                label: Some("Sprite Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
@@ -284,12 +321,14 @@ impl Plugin for SpritePlugin {
                     polygon_mode: wgpu::PolygonMode::Fill,
                     conservative: false,
                 },
+
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState {
                     count: 1,
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
+
                 multiview: None,
             });
 
@@ -313,16 +352,75 @@ impl Plugin for SpritePlugin {
             render_pipeline,
             vertex_buffer,
             index_buffer,
-            transform_bind_group_layout, // Why we have transform bind group layout here
             camera_bind_group,
             camera_buffer,
+            texture_id_transform_list_cache: HashMap::new(),
+            sprite_data_bind_group,
+            sprite_data_buffer,
+            sprite_data_list: Vec::new(),
+            texture_id_range: Vec::new(),
         };
 
         app.renderers.push(Box::new(SpritePlugin {}));
 
         app.world.register_component::<Quad>();
         app.world.singletons.insert(sprite_renderer_data);
+
+        app.world.register_component::<Sprite>();
+
+        app.schedular
+            .add_system(crate::app::SystemStage::PreRender, update_cache)
     }
+}
+
+pub fn update_cache(world: &mut World) {
+    let data = world.singletons.get_mut::<SpriteRendererData>().unwrap();
+
+    // Danger used std::mem::take
+    let mut sprite_data_list = std::mem::take(&mut data.sprite_data_list);
+    let mut texture_id_range = std::mem::take(&mut data.texture_id_range);
+    let mut map = std::mem::take(&mut data.texture_id_transform_list_cache);
+
+    for (_, lists) in map.iter_mut() {
+        lists.clear();
+    }
+
+    // Todo: Culling
+    for (transform2d, sprite) in query!(world, Transform2d, Sprite) {
+        // Hmm So sprite has reference to texture
+        let texture_id = sprite.image.get_id();
+
+        if let None = map.get_mut(&texture_id) {
+            map.insert(texture_id, Vec::new());
+        }
+
+        let sprite_data = SpriteData::new(sprite.color.into(), transform2d.create_matrix());
+
+        map.get_mut(&texture_id)
+            .expect("No texture id in map")
+            .push(sprite_data);
+    }
+
+    sprite_data_list.clear();
+    texture_id_range.clear();
+
+    for (texture_id, list) in &mut map {
+        let start_length = sprite_data_list.len();
+        sprite_data_list.append(list);
+        let end_length = sprite_data_list.len();
+
+        let draw_data = TextureDrawData {
+            range: start_length as u32..end_length as u32,
+            texture_id: *texture_id,
+        };
+        texture_id_range.push(draw_data);
+    }
+
+    // God damn borrow checker
+    let data = world.singletons.get_mut::<SpriteRendererData>().unwrap();
+    data.texture_id_transform_list_cache = map;
+    data.sprite_data_list = sprite_data_list;
+    data.texture_id_range = texture_id_range;
 }
 
 pub struct Sprite {

@@ -52,12 +52,20 @@ impl Plugin for RoadPlugin {
 
         // app.world
         //     .insert_entity((multi_mesh, Roads, Transform2d::IDENTITY));
+        app.world.register_component::<Roads>();
         app.world.add_listener::<RoadAddedEvent>(on_road_added);
     }
 }
 
 fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
-    let (multi_mesh, _) = query_mut!(world, MultiInstanceMesh, Roads).next().unwrap();
+    
+    let entity = query_mut!(world, MultiInstanceMesh, Roads).next();
+
+    if let None = entity {
+        return;
+    }
+
+    let (multi_mesh, _) = entity.unwrap();
 
     let level_manager = world.singletons.get::<LevelManager>().unwrap();
 

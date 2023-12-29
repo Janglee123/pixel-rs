@@ -11,6 +11,8 @@ use std::{
 
 use hashbrown::HashMap;
 
+use crate::app::Plugin;
+
 pub trait Asset {
     fn from_binary(binary: Vec<u8>) -> Self;
 }
@@ -19,6 +21,12 @@ pub struct AssetRef<T: Asset> {
     id: u64,
     marker: PhantomData<T>,
     counter: Rc<RefCell<u64>>,
+}
+
+impl<T: Asset> Clone for AssetRef<T> {
+    fn clone(&self) -> Self {
+        Self::new(self.id, Rc::clone(&self.counter))
+    }
 }
 
 impl<T: Asset> AssetRef<T> {
@@ -73,6 +81,7 @@ impl AssetStorage {
         let id = hasher.finish();
 
         if !self.data.contains_key(&id) {
+            // Todo: Set the path here
             if let Ok(content) = fs::read(path.clone()) {
                 self.data.insert(id, Box::new(T::from_binary(content)));
                 self.ref_counters.insert(id, Rc::new(RefCell::new(0)));
@@ -116,5 +125,13 @@ impl AssetStorage {
             self.data.remove(unused_asset);
             self.ref_counters.remove(unused_asset);
         }
+    }
+}
+
+pub struct AssetStoragePlugin;
+
+impl Plugin for AssetStoragePlugin {
+    fn build(app: &mut crate::app::App) {
+        app.world.singletons.insert(AssetStorage::new());
     }
 }

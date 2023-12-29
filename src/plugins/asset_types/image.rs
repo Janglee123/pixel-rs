@@ -24,4 +24,8 @@ impl Image {
     pub fn new(size: Vector2<u32>, data: Vec<u8>) -> Self {
         Self { size, data }
     }
+
+    pub fn get_data(&self) -> &Vec<u8> {
+        &self.data
+    }
 }

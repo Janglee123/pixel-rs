@@ -17,7 +17,7 @@ use app::App;
 use ecs::world::{self, *};
 use plugins::{
     core::{
-        asset_storage::{self, Asset},
+        asset_storage::{self, Asset, AssetStoragePlugin},
         // asset_storage::{self, Asset, AssetStorage},
         camera_plugin::CameraPlugin,
         input_plugin::InputPlugin,
@@ -69,6 +69,7 @@ fn main() {
     let mut app = App::new();
 
     // Core plugins
+    app.register_plugin::<AssetStoragePlugin>();
     app.register_plugin::<InputPlugin>();
     app.register_plugin::<WindowPlugin>();
     app.register_plugin::<RenderPlugin>();
