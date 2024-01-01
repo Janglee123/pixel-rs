@@ -1,6 +1,7 @@
 use crate::{
     app::Plugin,
     ecs::world::World,
+    game::core::level_manager::{self, LevelManager, RoadAddedEvent},
     math::{
         honeycomb::Hextor,
         transform2d::{self, Transform2d},
@@ -13,7 +14,7 @@ use crate::{
             texture::{self, Texture},
         },
     },
-    query_mut, zip, game::core::level_manager::{self, LevelManager, RoadAddedEvent},
+    query_mut, zip,
 };
 
 pub struct RoadPlacer {
@@ -24,7 +25,7 @@ pub struct RoadPlacerPlugin;
 
 impl Plugin for RoadPlacerPlugin {
     fn build(app: &mut crate::app::App) {
-        let gpu = app.world.singletons.get::<Gpu>().unwrap();
+        // let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
         // let texture = Texture::from_bytes(
         //     gpu,
@@ -34,7 +35,7 @@ impl Plugin for RoadPlacerPlugin {
         // .ok()
         // .unwrap();
 
-        let sprite_renderer_data = app.world.singletons.get::<SpriteRendererData>().unwrap();
+        // let sprite_renderer_data = app.world.singletons.get::<SpriteRendererData>().unwrap();
 
         // let sprite = Quad::new(
         //     &gpu.device,
@@ -58,7 +59,6 @@ impl Plugin for RoadPlacerPlugin {
 }
 
 fn on_input(world: &mut World) {
-    
     let (transform2d, road_placer) = query_mut!(world, Transform2d, RoadPlacer).next().unwrap();
 
     let input = world.singletons.get::<Input>().unwrap();
@@ -82,17 +82,13 @@ fn on_input(world: &mut World) {
     transform2d.position = road_placer.current_pos.to_vector(32.0).into();
     println!("new position: {:?}", transform2d.position);
 
-
     let tile = road_placer.current_pos;
 
     if input.is_key_pressed(winit::event::VirtualKeyCode::Space) {
         let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&tile) {
             level_manager.place_road(tile);
-            world.emit(RoadAddedEvent {
-                new_road: tile
-            });
+            world.emit(RoadAddedEvent { new_road: tile });
         }
     }
-
 }

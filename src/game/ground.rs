@@ -36,7 +36,11 @@ impl Plugin for GroundPlugin {
             .get::<TileMapBindGroupLayout>()
             .unwrap();
 
-        let asset_storage = app.world.singletons.get_mut::<AssetStorage>().unwrap();
+        let (asset_storage, gpu) = app
+            .world
+            .singletons
+            .get_many_mut::<(AssetStorage, Gpu)>()
+            .unwrap();
 
         // Todo: Find out how to deal with paths
         let grass_texture = asset_storage
@@ -52,23 +56,19 @@ impl Plugin for GroundPlugin {
                     .to_string(),
             )
             .unwrap();
-        
+
         // Todo: borrow checker pissed off here while borrowing asset storage and gpu mutably
         let data = asset_storage.get_data(&road_texture).get_data().clone();
-        let grass_data = asset_storage.get_data(&grass_texture).get_data().clone();
+        let grass_texture_data = asset_storage.get_data(&grass_texture).get_data().clone();
 
-
-        let gpu = app.world.singletons.get_mut::<Gpu>().unwrap();
-
-        
         gpu.create_texture(road_texture.get_id(), "road", &data, 64, 9);
-        gpu.create_texture(grass_texture.get_id(), "grass", &grass_data, 86, 86);
+        gpu.create_texture(grass_texture.get_id(), "grass", &grass_texture_data, 86, 86);
 
         for x in 0..3 {
             for y in 0..3 {
                 let sprite = Sprite::new(road_texture.clone(), Color::WHITE);
-                let  mut transform2d = Transform2d::IDENTITY;
-                
+                let mut transform2d = Transform2d::IDENTITY;
+
                 transform2d.position.x = (x * 100) as f32;
                 transform2d.position.y = (y * 100) as f32;
                 transform2d.scale = Vector2::new(64.0, 9.0);
@@ -80,8 +80,8 @@ impl Plugin for GroundPlugin {
         for x in 0..3 {
             for y in 0..3 {
                 let sprite = Sprite::new(grass_texture.clone(), Color::WHITE);
-                let  mut transform2d = Transform2d::IDENTITY;
-                
+                let mut transform2d = Transform2d::IDENTITY;
+
                 transform2d.position.x = (x * 100 - 200) as f32;
                 transform2d.position.y = (y * 100 - 200) as f32;
                 transform2d.scale = Vector2::new(86.0, 86.0) * 0.5;
@@ -89,7 +89,6 @@ impl Plugin for GroundPlugin {
                 app.world.insert_entity((sprite, transform2d));
             }
         }
-
 
         // gpu.create_texture(id, label, data, width, height);
         // let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "grass texture")

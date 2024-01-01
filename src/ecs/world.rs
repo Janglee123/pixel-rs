@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use super::singletons::{self, Singletons};
+
 // This is dumb idea, I should use hibitset
 // But anyway I think total 256 components are enough for me
 // pub struct ComponentId(u8);
@@ -256,7 +258,7 @@ pub struct World {
     component_id_counter: u8,
     pub component_id_map: HashMap<TypeId, ComponentId>,
     pub archetype_id_map: HashMap<BitSet, Archetype>,
-    pub singletons: AnyMap,
+    pub singletons: Singletons,
     events: AnyMap,
 }
 
@@ -269,7 +271,7 @@ impl World {
             component_id_counter: 0,
             component_id_map: HashMap::new(),
             archetype_id_map: HashMap::new(),
-            singletons: AnyMap::new(),
+            singletons: Singletons::new(),
             events: AnyMap::new(),
         }
     }
@@ -347,16 +349,16 @@ impl World {
 
     pub fn emit<T: WorldEventData + 'static>(&mut self, event_data: T) {
         let vec = Vec::<fn(&mut World, &T)>::new();
-        
-        if let Some(event) = self.events.get_mut::<WorldEvent<T>>() {
 
+        if let Some(event) = self.events.get_mut::<WorldEvent<T>>() {
             // TODO HACK: It will allocate memory every time emit called
             let listener_list = event.listeners.clone();
 
-            listener_list.iter().for_each(|fun| (fun)(self, &event_data));
+            listener_list
+                .iter()
+                .for_each(|fun| (fun)(self, &event_data));
         }
     }
-
 }
 
 pub struct Schedular<T: Hash + Eq + PartialEq + Copy + Clone, V> {
