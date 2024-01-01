@@ -47,7 +47,7 @@ impl Gpu {
             depth_or_array_layers: 1,
         };
 
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+        let texture_descriptor = wgpu::TextureDescriptor {
             label: Some(label),
             size,
             mip_level_count: 1,
@@ -55,23 +55,9 @@ impl Gpu {
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-        });
-
-        let image_copy_texture = wgpu::ImageCopyTexture {
-            aspect: wgpu::TextureAspect::All,
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
         };
 
-        let image_data_layout = wgpu::ImageDataLayout {
-            offset: 0,
-            bytes_per_row: NonZeroU32::new(4 * width),
-            rows_per_image: NonZeroU32::new(height),
-        };
-
-        self.queue
-            .write_texture(image_copy_texture, data, image_data_layout, size);
+        let texture = self.device.create_texture_with_data(&self.queue, &texture_descriptor, data);
 
         // Todo: I think there is no need to make it again and again
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
