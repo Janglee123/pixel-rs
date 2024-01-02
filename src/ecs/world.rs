@@ -118,6 +118,9 @@ impl TypelessComponentVec {
 }
 
 #[derive(Debug)]
+pub struct EntityId(u64);
+
+#[derive(Debug)]
 pub struct Archetype {
     pub set: HashMap<TypeId, TypelessComponentVec>,
     pub entity_row_map: HashMap<u64, usize>,
@@ -175,6 +178,9 @@ macro_rules! impl_component_set {
             fn get_bit_id_set(id_map: &HashMap<TypeId, ComponentId>) -> BitSet {
                 let mut bitset = BitSet::new();
 
+                let id = id_map.get(&TypeId::of::<EntityId>()).unwrap().clone();
+                bitset.insert_id(id as u8);
+
                 $(
                     let id = id_map.get(&TypeId::of::<$t>()).unwrap().clone();
                     bitset.insert_id(id as u8);
@@ -185,8 +191,11 @@ macro_rules! impl_component_set {
             fn create_archetype(&self) -> Archetype {
                 let mut archetype = Archetype::new();
 
-                $(
+                archetype
+                .set
+                .insert(TypeId::of::<EntityId>(), TypelessComponentVec::new::<EntityId>());
 
+                $(
                     archetype
                     .set
                     .insert(TypeId::of::<$t>(), TypelessComponentVec::new::<$t>());
@@ -204,6 +213,14 @@ macro_rules! impl_component_set {
             }
 
             fn insert(self, archetype: &mut Archetype, entity_id: u64) {
+
+                archetype
+                .set
+                .get_mut(&TypeId::of::<EntityId>())
+                .unwrap()
+                .get_mut::<EntityId>()
+                .push(EntityId(entity_id));
+
 
                 $(
                     archetype
@@ -264,16 +281,18 @@ pub struct World {
 
 impl World {
     pub fn new() -> Self {
-        let mut map: HashMap<BitSet, Archetype> = HashMap::new();
-
-        Self {
+        let mut result = Self {
             entity_id_counter: 0,
             component_id_counter: 0,
             component_id_map: HashMap::new(),
             archetype_id_map: HashMap::new(),
             singletons: Singletons::new(),
             events: AnyMap::new(),
-        }
+        };
+
+        result.register_component::<EntityId>();
+
+        result
     }
 
     fn get_new_entity_id(&mut self) -> u64 {
