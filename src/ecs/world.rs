@@ -117,14 +117,22 @@ impl TypelessComponentVec {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub struct EntityId(u64);
+
+impl EntityId {
+    pub fn new(id: u64) -> Self {
+        Self(id)
+    }
+}
 
 #[derive(Debug)]
 pub struct Archetype {
     pub set: HashMap<TypeId, TypelessComponentVec>,
-    pub entity_row_map: HashMap<u64, usize>,
+    pub entity_row_map: HashMap<EntityId, usize>,
     pub length: usize,
+
+    entity_remover: fn(&mut Archetype, &EntityId),
 }
 
 impl Archetype {
@@ -133,6 +141,7 @@ impl Archetype {
             set: HashMap::new(),
             entity_row_map: HashMap::new(),
             length: 0,
+            entity_remover: |_, _| {},
         }
     }
 
@@ -162,6 +171,10 @@ impl Archetype {
         self.length += 1;
         current_length
     }
+
+    pub fn remove_entity(&mut self, id: &EntityId) {
+        (self.entity_remover)(self, id)
+    }
 }
 
 pub trait ComponentSet {
@@ -169,6 +182,7 @@ pub trait ComponentSet {
     fn insert(self, archetype: &mut Archetype, entity_id: u64);
     fn create_archetype(&self) -> Archetype;
     fn get_type_id() -> Vec<TypeId>;
+    fn remove(archetype: &mut Archetype, entity_id: &EntityId);
 }
 
 macro_rules! impl_component_set {
@@ -201,6 +215,8 @@ macro_rules! impl_component_set {
                     .insert(TypeId::of::<$t>(), TypelessComponentVec::new::<$t>());
                 )+
 
+                archetype.entity_remover = Self::remove;
+
                 archetype
             }
 
@@ -232,7 +248,36 @@ macro_rules! impl_component_set {
                 )+
 
                 let index = archetype.add_new_entry();
-                archetype.entity_row_map.insert(entity_id, index);
+                archetype.entity_row_map.insert(EntityId(entity_id), index);
+            }
+
+            fn remove(archetype: &mut Archetype, entity_id: &EntityId){
+
+                let delete_index = archetype.entity_row_map.remove(entity_id).unwrap();
+
+                archetype
+                .set
+                .get_mut(&TypeId::of::<EntityId>())
+                .unwrap()
+                .get_mut::<EntityId>()
+                .remove(delete_index);
+
+                let entity = (
+                    $(
+                        archetype
+                        .set
+                        .get_mut(&TypeId::of::<$t>())
+                        .unwrap()
+                        .get_mut::<$t>()
+                        .remove(delete_index),
+                    )+
+                );
+
+                for (entity_id, index) in &mut archetype.entity_row_map {
+                    if delete_index < *index {
+                        *index -= 1;
+                    }
+                }
             }
         }
     };
@@ -337,14 +382,6 @@ impl World {
         entity_id
     }
 
-    pub fn remove_entity<T: ComponentSet>(&mut self, entity_id: u64) -> Option<T> {
-        for archetype in self.archetype_id_map.iter() {
-            if let Some(index) = archetype.1.entity_row_map.get(&entity_id) {}
-        }
-
-        return None;
-    }
-
     pub fn add_listener<T: WorldEventData + 'static>(&mut self, fun: fn(&mut World, &T)) {
         // Hmm so I have to check if there is any world event already exists or not
 
@@ -376,6 +413,16 @@ impl World {
             listener_list
                 .iter()
                 .for_each(|fun| (fun)(self, &event_data));
+        }
+    }
+
+    pub fn remove_entity(&mut self, id: &EntityId) {
+        // Main issue here is how to delete it from archetype
+
+        for (_, archetype) in &mut self.archetype_id_map {
+            if archetype.entity_row_map.contains_key(id) {
+                archetype.remove_entity(&id)
+            }
         }
     }
 }
