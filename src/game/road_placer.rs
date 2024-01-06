@@ -1,16 +1,22 @@
 use crate::{
     app::Plugin,
-    ecs::world::World,
+    ecs::world::{self, World},
     game::core::level_manager::{self, LevelManager, RoadAddedEvent},
     math::{
+        color::Color,
         honeycomb::Hextor,
         transform2d::{self, Transform2d},
         vector2::Vector2,
     },
     plugins::{
-        core::{input_plugin::Input, render_plugin::Gpu},
+        asset_types::image::Image,
+        core::{
+            asset_storage::{self, AssetStorage},
+            input_plugin::Input,
+            render_plugin::Gpu,
+        },
         renderer_plugins::{
-            sprite_renderer::{self, Quad, SpriteRendererData},
+            sprite_renderer::{self, Quad, Sprite, SpriteRendererData},
             texture::{self, Texture},
         },
     },
@@ -25,25 +31,30 @@ pub struct RoadPlacerPlugin;
 
 impl Plugin for RoadPlacerPlugin {
     fn build(app: &mut crate::app::App) {
-        // let gpu = app.world.singletons.get::<Gpu>().unwrap();
 
-        // let texture = Texture::from_bytes(
-        //     gpu,
-        //     include_bytes!("assets/selector.png"),
-        //     "selector texture",
-        // )
-        // .ok()
-        // .unwrap();
+        let (asset_storage, gpu) = app
+            .world
+            .singletons
+            .get_many_mut::<(AssetStorage, Gpu)>()
+            .unwrap();
 
-        // let sprite_renderer_data = app.world.singletons.get::<SpriteRendererData>().unwrap();
+        let select_sprite = asset_storage
+            .get::<Image>(
+                "/mnt/09cbb5c3-3c84-4ea4-b328-254e96041faf/pixel-rs/src/game/assets/selector.png"
+                    .to_string(),
+            )
+            .unwrap();
 
-        // let sprite = Quad::new(
-        //     &gpu.device,
-        //     &sprite_renderer_data.transform_bind_group_layout,
-        //     &sprite_renderer_data.texture_bind_group_layout,
-        //     texture,
-        //     Vector2::new(32, 32),
-        // );
+        let data = asset_storage.get_data(&select_sprite);
+        gpu.create_texture(
+            select_sprite.get_id(),
+            "Selector sprite",
+            data.get_data(),
+            64,
+            74,
+        );
+
+        let sprite = Sprite::new(select_sprite, Color::new(1.0, 1.0, 1.0, 0.5), 0);
 
         let mut transform2d = Transform2d::IDENTITY;
         transform2d.scale = Vector2::new(32.0, 32.0);
@@ -52,7 +63,10 @@ impl Plugin for RoadPlacerPlugin {
             current_pos: Hextor::new(0, 0),
         };
 
-        // app.world.insert_entity((sprite, transform2d, road_placer));
+        app.world.insert_entity((sprite2, transform2d.clone()));
+        app.world.insert_entity((sprite, transform2d, road_placer));
+
+
         app.schedular
             .add_system(crate::app::SystemStage::Input, on_input);
     }

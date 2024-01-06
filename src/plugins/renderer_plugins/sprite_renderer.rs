@@ -76,24 +76,27 @@ struct TextureDrawData {
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 struct SpriteData {
-    color: [f32; 3],
-    _padding: u32,
+    color: [f32; 4],
     matrix: Matrix3,
+    z_index: i32,
+    _padding: [u32; 3],
 }
 
 impl SpriteData {
-    fn new(color: [f32; 3], matrix: Matrix3) -> Self {
+    fn new(color: [f32; 4], matrix: Matrix3, z_index: i32) -> Self {
         Self {
             color,
-            _padding: 0,
             matrix,
+            z_index,
+            _padding: [0; 3],
         }
     }
 
     const EMPTY: SpriteData = SpriteData {
-        color: [0.0; 3],
-        _padding: 0,
+        color: [0.0; 4],
         matrix: Matrix3::IDENTITY,
+        z_index: 1,
+        _padding: [0; 3],
     };
 }
 
@@ -189,11 +192,10 @@ impl Renderer for SpritePlugin {
         render_pass.set_bind_group(2, &data.camera_bind_group, &[]);
 
         for TextureDrawData { range, texture_id } in &data.texture_id_range {
-            
-            println!(
-                "[Draw call] range: {:?} texture_id: {:?} ",
-                range, texture_id
-            );
+            // println!(
+            //     "[Draw call] range: {:?} texture_id: {:?} ",
+            //     range, texture_id
+            // );
 
             let texture_group = gpu.texture_bing_group_map.get(texture_id).unwrap();
             render_pass.set_bind_group(1, texture_group, &[]);
@@ -394,7 +396,7 @@ pub fn update_cache(world: &mut World) {
             map.insert(texture_id, Vec::new());
         }
 
-        let sprite_data = SpriteData::new(sprite.color.into(), transform2d.create_matrix());
+        let sprite_data = SpriteData::new(sprite.color.into(), transform2d.create_matrix(), sprite.z_index);
 
         map.get_mut(&texture_id)
             .expect("No texture id in map")
@@ -426,10 +428,15 @@ pub fn update_cache(world: &mut World) {
 pub struct Sprite {
     image: AssetRef<Image>,
     color: Color,
+    z_index: i32,
 }
 
 impl Sprite {
-    pub fn new(image: AssetRef<Image>, color: Color) -> Self {
-        Self { image, color }
+    pub fn new(image: AssetRef<Image>, color: Color, z_index: i32) -> Self {
+        Self {
+            image,
+            color,
+            z_index,
+        }
     }
 }

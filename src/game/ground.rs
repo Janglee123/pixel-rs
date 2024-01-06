@@ -64,36 +64,6 @@ impl Plugin for GroundPlugin {
         gpu.create_texture(road_texture.get_id(), "road", &data, 64, 9);
         gpu.create_texture(grass_texture.get_id(), "grass", &grass_texture_data, 86, 86);
 
-        for x in 0..3 {
-            for y in 0..3 {
-                let sprite = Sprite::new(road_texture.clone(), Color::WHITE);
-                let mut transform2d = Transform2d::IDENTITY;
-
-                transform2d.position.x = (x * 100) as f32;
-                transform2d.position.y = (y * 100) as f32;
-                transform2d.scale = Vector2::new(64.0, 9.0);
-
-                app.world.insert_entity((sprite, transform2d));
-            }
-        }
-
-        for x in 0..3 {
-            for y in 0..3 {
-                let sprite = Sprite::new(grass_texture.clone(), Color::WHITE);
-                let mut transform2d = Transform2d::IDENTITY;
-
-                transform2d.position.x = (x * 100 - 200) as f32;
-                transform2d.position.y = (y * 100 - 200) as f32;
-                transform2d.scale = Vector2::new(86.0, 86.0) * 0.5;
-
-                app.world.insert_entity((sprite, transform2d));
-            }
-        }
-
-        // gpu.create_texture(id, label, data, width, height);
-        // let texture = Texture::from_bytes(gpu, include_bytes!("assets/grass.png"), "grass texture")
-        //     .ok()
-        //     .unwrap();
 
         // let mut tile_map = TileMap::new(
         //     gpu,
