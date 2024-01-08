@@ -31,7 +31,6 @@ pub struct RoadPlacerPlugin;
 
 impl Plugin for RoadPlacerPlugin {
     fn build(app: &mut crate::app::App) {
-
         let (asset_storage, gpu) = app
             .world
             .singletons
@@ -63,9 +62,7 @@ impl Plugin for RoadPlacerPlugin {
             current_pos: Hextor::new(0, 0),
         };
 
-        app.world.insert_entity((sprite2, transform2d.clone()));
         app.world.insert_entity((sprite, transform2d, road_placer));
-
 
         app.schedular
             .add_system(crate::app::SystemStage::Input, on_input);
