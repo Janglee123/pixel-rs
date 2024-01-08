@@ -24,6 +24,11 @@ pub trait Renderer {
     );
 }
 
+pub struct MeshBuffers {
+    pub index_buffer: wgpu::Buffer,
+    pub vertex_buffer: wgpu::Buffer,
+}
+
 pub struct Gpu {
     pub surface: Surface,
     pub queue: Queue,
@@ -33,6 +38,8 @@ pub struct Gpu {
     pub texture_bing_group_map: HashMap<u64, wgpu::BindGroup>, // Why bind group and not texture buffer??
     pub texture_map: HashMap<u64, Texture>,
     pub texture_bind_group_layout: wgpu::BindGroupLayout, // Sprite render needs this
+
+    mesh_data_map: HashMap<u64, MeshBuffers>,
 
     draw_index_buffers: [wgpu::Buffer; 512],
     draw_index_bing_group: [wgpu::BindGroup; 512],
@@ -57,7 +64,9 @@ impl Gpu {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         };
 
-        let texture = self.device.create_texture_with_data(&self.queue, &texture_descriptor, data);
+        let texture = self
+            .device
+            .create_texture_with_data(&self.queue, &texture_descriptor, data);
 
         // Todo: I think there is no need to make it again and again
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -100,6 +109,40 @@ impl Gpu {
 
     pub fn get_draw_index_bind_group(&self, index: usize) -> &wgpu::BindGroup {
         &self.draw_index_bing_group[index]
+    }
+
+    pub fn create_mesh_buffers(&mut self, id: u64, vertex_data: &[u8], index_buffer: &[u8]) {
+        if self.mesh_data_map.contains_key(&id) {
+            return;
+        }
+
+        let vertex_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: vertex_data,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+
+        let index_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: index_buffer,
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
+        self.mesh_data_map.insert(
+            id,
+            MeshBuffers {
+                vertex_buffer,
+                index_buffer,
+            },
+        );
+    }
+
+    pub fn get_mesh_buffers(&self, id: u64) -> Option<&MeshBuffers> {
+        self.mesh_data_map.get(&id)
     }
 }
 
@@ -267,6 +310,7 @@ impl Plugin for RenderPlugin {
             queue,
             device,
             surface_config,
+
             texture_bing_group_map: HashMap::new(),
             texture_map: HashMap::new(),
             texture_bind_group_layout,
@@ -274,6 +318,8 @@ impl Plugin for RenderPlugin {
             draw_index_bind_group_layout,
             draw_index_buffers,
             draw_index_bing_group,
+
+            mesh_data_map: HashMap::new(),
         };
 
         app.set_renderer(render_function);
