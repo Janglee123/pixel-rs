@@ -19,7 +19,7 @@ use crate::{
         asset_types::image::Image,
         core::{
             asset_storage::AssetRef,
-            camera_plugin::Camera,
+            camera_plugin::{Camera, CameraBindGroup},
             render_plugin::{Gpu, Renderer},
         },
     },
@@ -59,9 +59,6 @@ pub struct SpriteRendererData {
 
     sprite_data_bind_group: wgpu::BindGroup, // Hmm I really need to think about how to write a render stuff
     sprite_data_buffer: wgpu::Buffer,
-
-    camera_bind_group: wgpu::BindGroup,
-    camera_buffer: Buffer,
 
     texture_id_transform_list_cache: HashMap<u64, Vec<SpriteData>>,
     sprite_data_list: Vec<SpriteData>,
@@ -165,22 +162,16 @@ impl Renderer for SpritePlugin {
         render_pass: &mut wgpu::RenderPass<'encoder>,
         world: &'world World,
     ) {
-        let window = world.singletons.get::<Window>().unwrap();
-        let size = window.inner_size();
-
-        let gpu = world.singletons.get::<Gpu>().unwrap();
-        let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
-        let projection = transform2d.create_matrix() * camera.projection;
+        let (gpu, camera_data) = world
+            .singletons
+            .get_many::<(Gpu, CameraBindGroup)>()
+            .unwrap();
 
         let data = world.singletons.get::<SpriteRendererData>().unwrap();
 
         render_pass.set_pipeline(&data.render_pipeline);
         render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
         render_pass.set_index_buffer(data.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-        // Todo: Common camera_buffer for all
-        gpu.queue
-            .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
 
         gpu.queue.write_buffer(
             &data.sprite_data_buffer,
@@ -189,7 +180,7 @@ impl Renderer for SpritePlugin {
         );
 
         render_pass.set_bind_group(0, &data.sprite_data_bind_group, &[]);
-        render_pass.set_bind_group(2, &data.camera_bind_group, &[]);
+        render_pass.set_bind_group(2, &camera_data.bind_group, &[]);
 
         for TextureDrawData { range, texture_id } in &data.texture_id_range {
             // println!(
@@ -207,44 +198,15 @@ impl Renderer for SpritePlugin {
 
 impl Plugin for SpritePlugin {
     fn build(app: &mut crate::app::App) {
-        let gpu = app.world.singletons.get::<Gpu>().unwrap();
+        let (gpu, camera_data) = app
+            .world
+            .singletons
+            .get_many::<(Gpu, CameraBindGroup)>()
+            .unwrap();
 
         let shader = gpu
             .device
             .create_shader_module(include_wgsl!("sprite_shader.wgsl"));
-
-        let camera_bind_group_layout =
-            gpu.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Camera bind group layout"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                });
-
-        let camera_buffer = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Camera buffer"),
-                contents: bytemuck::cast_slice(&[Matrix3::IDENTITY]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-
-        let camera_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Camera bind group"),
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-        });
 
         let sprite_data_buffer = gpu
             .device
@@ -288,7 +250,7 @@ impl Plugin for SpritePlugin {
                     bind_group_layouts: &[
                         &sprite_data_bind_group_layout,
                         &gpu.texture_bind_group_layout,
-                        &camera_bind_group_layout,
+                        &camera_data.layout,
                     ],
                     push_constant_ranges: &[],
                 });
@@ -354,8 +316,6 @@ impl Plugin for SpritePlugin {
             render_pipeline,
             vertex_buffer,
             index_buffer,
-            camera_bind_group,
-            camera_buffer,
             texture_id_transform_list_cache: HashMap::new(),
             sprite_data_bind_group,
             sprite_data_buffer,
@@ -396,7 +356,11 @@ pub fn update_cache(world: &mut World) {
             map.insert(texture_id, Vec::new());
         }
 
-        let sprite_data = SpriteData::new(sprite.color.into(), transform2d.create_matrix(), sprite.z_index);
+        let sprite_data = SpriteData::new(
+            sprite.color.into(),
+            transform2d.create_matrix(),
+            sprite.z_index,
+        );
 
         map.get_mut(&texture_id)
             .expect("No texture id in map")
