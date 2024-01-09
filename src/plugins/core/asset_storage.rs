@@ -65,7 +65,17 @@ impl AssetStorage {
         }
     }
 
-    pub fn insert<T: Asset + 'static>(&mut self, asset: T, id: u64) -> bool {
+    fn get_id(value: &str) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        let id = hasher.finish();
+
+        id
+    }
+
+    pub fn insert<T: Asset + 'static>(&mut self, asset: T, name: &str) -> bool {
+        let id = Self::get_id(name);
+
         if !self.data.contains_key(&id) {
             self.data.insert(id, Box::new(asset));
 
@@ -75,10 +85,8 @@ impl AssetStorage {
         return false;
     }
 
-    pub fn get<T: Asset + 'static>(&mut self, path: String) -> Option<AssetRef<T>> {
-        let mut hasher = DefaultHasher::new();
-        path.hash(&mut hasher);
-        let id = hasher.finish();
+    pub fn get<T: Asset + 'static>(&mut self, path: &str) -> Option<AssetRef<T>> {
+        let id = Self::get_id(path);
 
         if !self.data.contains_key(&id) {
             // Todo: Set the path here

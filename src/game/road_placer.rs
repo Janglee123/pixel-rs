@@ -39,8 +39,7 @@ impl Plugin for RoadPlacerPlugin {
 
         let select_sprite = asset_storage
             .get::<Image>(
-                "/mnt/09cbb5c3-3c84-4ea4-b328-254e96041faf/pixel-rs/src/game/assets/selector.png"
-                    .to_string(),
+                "/mnt/09cbb5c3-3c84-4ea4-b328-254e96041faf/pixel-rs/src/game/assets/selector.png",
             )
             .unwrap();
 

@@ -26,10 +26,7 @@ use plugins::{
         window_plugin::WindowPlugin,
     },
     other::tweener::TweenerPlugin,
-    renderer_plugins::{
-        multi_instance_mesh_renderer::MultiInstanceMeshRenderer, sprite_renderer::SpritePlugin,
-        tilemap_renderer::TileMapRenderer,
-    },
+    renderer_plugins::Renderer2dPlugin,
 };
 use winit::event::MouseButton;
 
@@ -77,12 +74,8 @@ fn main() {
     app.register_plugin::<TimerPlugin>();
     app.register_plugin::<TweenerPlugin>();
 
-    // Rendering plugins
-    app.register_plugin::<TileMapRenderer>();
-    app.register_plugin::<SpritePlugin>();
-    app.register_plugin::<MultiInstanceMeshRenderer>();
+    app.register_plugin::<Renderer2dPlugin>();
 
-    // Game
     // Game related plugins are added into [game/mod.rs]
     app.register_plugin::<GamePlugin>();
 

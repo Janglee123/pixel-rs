@@ -182,7 +182,7 @@ pub trait ComponentSet {
     fn insert(self, archetype: &mut Archetype, entity_id: u64);
     fn create_archetype(&self) -> Archetype;
     fn get_type_id() -> Vec<TypeId>;
-    fn remove(archetype: &mut Archetype, entity_id: &EntityId);
+    fn remove_entity(archetype: &mut Archetype, entity_id: &EntityId);
 }
 
 macro_rules! impl_component_set {
@@ -215,7 +215,7 @@ macro_rules! impl_component_set {
                     .insert(TypeId::of::<$t>(), TypelessComponentVec::new::<$t>());
                 )+
 
-                archetype.entity_remover = Self::remove;
+                archetype.entity_remover = Self::remove_entity;
 
                 archetype
             }
@@ -251,7 +251,7 @@ macro_rules! impl_component_set {
                 archetype.entity_row_map.insert(EntityId(entity_id), index);
             }
 
-            fn remove(archetype: &mut Archetype, entity_id: &EntityId){
+            fn remove_entity(archetype: &mut Archetype, entity_id: &EntityId){
 
                 let delete_index = archetype.entity_row_map.remove(entity_id).unwrap();
 
