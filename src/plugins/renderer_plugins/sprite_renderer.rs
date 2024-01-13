@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use glam::Mat3;
 use hashbrown::HashMap;
 use std::{
     ops::{Range, RangeBounds},
@@ -12,8 +13,7 @@ use crate::{
     ecs::world::{Component, World},
     math::{
         color::Color,
-        transform2d::{self, Matrix3, Transform2d},
-        vector2::Vector2,
+        transform2d::{self, Transform2d},
     },
     plugins::{
         asset_types::image::Image,
@@ -60,8 +60,8 @@ pub struct SpriteRendererData {
     sprite_data_bind_group: wgpu::BindGroup, // Hmm I really need to think about how to write a render stuff
     sprite_data_buffer: wgpu::Buffer,
 
-    texture_id_transform_list_cache: HashMap<u64, Vec<SpriteData>>,
-    sprite_data_list: Vec<SpriteData>,
+    texture_id_transform_list_cache: HashMap<u64, Vec<SpriteInstanceData>>,
+    sprite_data_list: Vec<SpriteInstanceData>,
     texture_id_range: Vec<TextureDrawData>,
 }
 
@@ -72,15 +72,15 @@ struct TextureDrawData {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
-struct SpriteData {
+struct SpriteInstanceData {
     color: [f32; 4],
-    matrix: Matrix3,
+    matrix: Mat3, // Todo: Fix this to Affine3 or Vec4 x, Vec4 y, Vec4 position. too much waste
     z_index: i32,
     _padding: [u32; 3],
 }
 
-impl SpriteData {
-    fn new(color: [f32; 4], matrix: Matrix3, z_index: i32) -> Self {
+impl SpriteInstanceData {
+    fn new(color: [f32; 4], matrix: Mat3, z_index: i32) -> Self {
         Self {
             color,
             matrix,
@@ -89,69 +89,12 @@ impl SpriteData {
         }
     }
 
-    const EMPTY: SpriteData = SpriteData {
+    const EMPTY: SpriteInstanceData = SpriteInstanceData {
         color: [0.0; 4],
-        matrix: Matrix3::IDENTITY,
+        matrix: Mat3::IDENTITY,
         z_index: 1,
         _padding: [0; 3],
     };
-}
-
-pub struct Quad {
-    transform_buffer: Buffer,
-    transform_bind_group: wgpu::BindGroup,
-    texture_bind_group: wgpu::BindGroup,
-    texture: texture::Texture, //Todo: Asset manager
-    size: Vector2<u32>,
-}
-
-impl Quad {
-    pub fn new(
-        device: &Device,
-        transform_bind_group_layout: &BindGroupLayout,
-        texture_bind_group_layout: &BindGroupLayout,
-        texture: Texture,
-        size: Vector2<u32>,
-    ) -> Self {
-        let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&[Transform2d::IDENTITY.create_matrix()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        // I am passing bind group layout
-        let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Transform buffer"),
-            layout: transform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: transform_buffer.as_entire_binding(),
-            }],
-        });
-
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Texture bind group"),
-            layout: texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                },
-            ],
-        });
-
-        Self {
-            transform_buffer,
-            transform_bind_group,
-            texture_bind_group,
-            texture,
-            size,
-        }
-    }
 }
 
 pub struct SpritePlugin;
@@ -213,7 +156,7 @@ impl Plugin for SpritePlugin {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Sprite data buffer"),
                 contents: bytemuck::cast_slice(
-                    &[SpriteData::EMPTY; 512], // Lets assume there wont be more than 512 instance of
+                    &[SpriteInstanceData::EMPTY; 512], // Lets assume there wont be more than 512 instance of
                 ),
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             });
@@ -325,7 +268,6 @@ impl Plugin for SpritePlugin {
 
         app.renderers.push(Box::new(SpritePlugin {}));
 
-        app.world.register_component::<Quad>();
         app.world.singletons.insert(sprite_renderer_data);
 
         app.world.register_component::<Sprite>();
@@ -356,7 +298,7 @@ pub fn update_cache(world: &mut World) {
             map.insert(texture_id, Vec::new());
         }
 
-        let sprite_data = SpriteData::new(
+        let sprite_data = SpriteInstanceData::new(
             sprite.color.into(),
             transform2d.create_matrix(),
             sprite.z_index,

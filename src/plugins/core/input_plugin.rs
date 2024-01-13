@@ -1,9 +1,14 @@
 use std::f32::consts::E;
 
+use glam::Vec2;
 use hashbrown::HashMap;
-use winit::event::{ElementState, KeyboardInput, MouseButton, ScanCode, VirtualKeyCode};
+use winit::{
+    event::{ElementState, KeyEvent, MouseButton},
+    keyboard::KeyCode,
+    keyboard::PhysicalKey::Code,
+};
 
-use crate::{app::Plugin, ecs::world::World, math::vector2::Vector2};
+use crate::{app::Plugin, ecs::world::World};
 
 pub enum ButtonState {
     JustPressed, // Will implement
@@ -13,13 +18,13 @@ pub enum ButtonState {
 
 #[derive(Default, Debug)]
 pub struct MousePosition {
-    pub world_position: Vector2<f32>,
-    pub screen_position: Vector2<f32>,
+    pub world_position: Vec2,
+    pub screen_position: Vec2,
 }
 
 #[derive(Default, Debug)]
 pub struct MouseMotion {
-    pub delta: Vector2<f32>,
+    pub delta: Vec2,
 }
 
 #[derive(Debug)]
@@ -31,7 +36,7 @@ pub struct MouseButtonInput {
 #[derive(Default, Debug)]
 pub struct Input {
     mouse_input: HashMap<MouseButton, MouseButtonInput>,
-    keyboard_input: HashMap<VirtualKeyCode, KeyboardInput>,
+    keyboard_input: HashMap<KeyCode, KeyEvent>,
     mouse_motion: MouseMotion,
     mouse_position: MousePosition,
 }
@@ -41,13 +46,13 @@ impl Input {
         self.mouse_input.insert(input.button, input);
     }
 
-    pub fn on_curser_moved(&mut self, cursor_pos: Vector2<f32>) {
+    pub fn on_curser_moved(&mut self, cursor_pos: Vec2) {
         self.mouse_position.screen_position = cursor_pos;
     }
 
-    pub fn on_keyboard_input(&mut self, input: KeyboardInput) {
-        if let Some(virtual_keycode) = input.virtual_keycode {
-            self.keyboard_input.insert(virtual_keycode, input);
+    pub fn on_keyboard_input(&mut self, input: KeyEvent) {
+        if let Code(keycode) = input.physical_key {
+            self.keyboard_input.insert(keycode, input);
         }
     }
 
@@ -63,7 +68,7 @@ impl Input {
         result
     }
 
-    pub fn is_key_pressed(&self, key: VirtualKeyCode) -> bool {
+    pub fn is_key_pressed(&self, key: KeyCode) -> bool {
         let a = self.keyboard_input.get(&key);
 
         let result = if let Some(input) = a {

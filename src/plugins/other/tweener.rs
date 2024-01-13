@@ -1,9 +1,10 @@
+use glam::Vec2;
+
 use crate::{
     app::Plugin,
     ecs::world::World,
     math::{
         transform2d::{self, Transform2d},
-        vector2::Vector2,
     },
     plugins::core::timer_plugin::Time,
     query_mut, zip,
@@ -48,11 +49,11 @@ impl<T: Interpolate + Clone> TweenerState<T> {
 }
 
 pub struct PositionTweener {
-    tweener_state: TweenerState<Vector2<f32>>,
+    tweener_state: TweenerState<Vec2>,
 }
 
 impl PositionTweener {
-    pub fn new(start: Vector2<f32>, end: Vector2<f32>, duration: f32, easing: Easing) -> Self {
+    pub fn new(start: Vec2, end: Vec2, duration: f32, easing: Easing) -> Self {
         Self {
             tweener_state: TweenerState {
                 start,
@@ -66,11 +67,11 @@ impl PositionTweener {
 }
 
 pub struct ScaleTweener {
-    tweener_state: TweenerState<Vector2<f32>>,
+    tweener_state: TweenerState<Vec2>,
 }
 
 impl ScaleTweener {
-    pub fn new(start: Vector2<f32>, end: Vector2<f32>, duration: f32, easing: Easing) -> Self {
+    pub fn new(start: Vec2, end: Vec2, duration: f32, easing: Easing) -> Self {
         Self {
             tweener_state: TweenerState {
                 start,
@@ -105,9 +106,9 @@ impl Interpolate for f32 {
     }
 }
 
-impl Interpolate for Vector2<f32> {
+impl Interpolate for Vec2 {
     fn interpolate(start: &Self, end: &Self, weight: f32) -> Self {
-        Vector2 {
+        Vec2 {
             x: f32::interpolate(&start.x, &end.x, weight),
             y: f32::interpolate(&start.y, &end.y, weight),
         }

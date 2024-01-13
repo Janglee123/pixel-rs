@@ -8,7 +8,6 @@ use crate::{
         color::Color,
         honeycomb::{Hextor, SpiralLoop},
         transform2d::{self, Transform2d},
-        vector2::Vector2,
     },
     plugins::{
         asset_types::image::Image,

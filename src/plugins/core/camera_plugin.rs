@@ -1,20 +1,18 @@
+use glam::Mat3;
 use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
 use winit::window::Window;
 
 use crate::{
     app::{Plugin, SystemStage},
     ecs::world::{self, World},
-    math::{
-        transform2d::{Matrix3, Transform2d},
-        vector2::Vector2,
-    },
+    math::transform2d::Transform2d,
     query, query_mut, zip,
 };
 
 use super::render_plugin::{Gpu, Renderer};
 
 pub struct Camera {
-    pub projection: Matrix3,
+    pub projection: Mat3,
 }
 
 pub struct CameraBindGroup {
@@ -30,7 +28,7 @@ impl Plugin for CameraPlugin {
         // First I need to know that its -1 to 1 or -0.5 to 0.5 I know that center is zero zero
         app.world.insert_entity((
             Camera {
-                projection: Matrix3::IDENTITY,
+                projection: Mat3::IDENTITY,
             },
             Transform2d::IDENTITY,
         ));
@@ -57,7 +55,7 @@ impl Plugin for CameraPlugin {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Camera buffer"),
-                contents: bytemuck::cast_slice(&[Matrix3::IDENTITY]),
+                contents: bytemuck::cast_slice(&[Mat3::IDENTITY]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -106,6 +104,6 @@ pub fn on_resize(world: &mut World) {
 
     let camera = query_mut!(world, Camera).next().unwrap();
 
-    camera.projection.x[0] = 2.0 / size.width as f32;
-    camera.projection.y[1] = 2.0 / size.height as f32;
+    camera.projection.x_axis.x = 2.0 / size.width as f32;
+    camera.projection.y_axis.y = 2.0 / size.height as f32;
 }

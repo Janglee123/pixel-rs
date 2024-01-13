@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use glam::Vec2;
 use hashbrown::HashMap;
 
 use crate::{
@@ -8,7 +9,6 @@ use crate::{
     math::{
         honeycomb::{Hextor, SpiralLoop},
         transform2d::{self, Transform2d},
-        vector2::Vector2,
     },
     plugins::{
         core::render_plugin::{Gpu, Renderer},
@@ -71,7 +71,7 @@ fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
 
     let center = data.new_road;
 
-    let center_pos: Vector2<f32> = center.to_vector(32.0).into();
+    let center_pos: Vec2 = center.to_vector(32.0).into();
 
     for neighbor in SpiralLoop::new(center, 1) {
         if level_manager.is_road(&neighbor) {
@@ -79,23 +79,23 @@ fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
                 continue;
             }
 
-            let neighbor_pos: Vector2<f32> = neighbor.to_vector(32.0).into();
+            let neighbor_pos: Vec2 = neighbor.to_vector(32.0).into();
 
             // add tile for center tile
             // get position
             // get rotation
             let center_transform = Transform2d::new(
                 center_pos,
-                (neighbor_pos - center_pos).angle() as f32,
-                Vector2::new(64.0, 16.0),
+                (neighbor_pos - center_pos).to_angle() as f32,
+                Vec2::new(64.0, 16.0),
             );
 
             let center_instance = InstanceData::new(&center_transform, [1.0, 1.0, 1.0]);
 
             let neighbor_transform = Transform2d::new(
                 neighbor_pos,
-                (center_pos - neighbor_pos).angle() as f32,
-                Vector2::new(64.0, 16.0),
+                (center_pos - neighbor_pos).to_angle() as f32,
+                Vec2::new(64.0, 16.0),
             );
 
             let neighbor_instance = InstanceData::new(&neighbor_transform, [1.0, 1.0, 1.0]);

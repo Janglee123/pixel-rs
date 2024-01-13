@@ -1,13 +1,11 @@
+use glam::Vec2;
 use winit::{
-    event::{Event, KeyboardInput, WindowEvent},
+    event::{Event, KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
 
-use crate::{
-    app::{App, Plugin},
-    math::vector2::Vector2,
-};
+use crate::app::{App, Plugin};
 
 use super::input_plugin::{Input, MouseButtonInput};
 
@@ -17,18 +15,22 @@ fn runner(mut app: App) {
     let event_loop = app.world.singletons.remove::<EventLoop<()>>().unwrap();
     let w_id = app.world.singletons.get::<Window>().unwrap().id();
 
-    event_loop.run(move |event, _, r_control_flow| {
+    event_loop.run(move |event, window_target| {
         // *r_control_flow = ControlFlow::Poll;
 
         match event {
             Event::WindowEvent { window_id, event } if window_id == w_id => match event {
-                WindowEvent::CloseRequested => *r_control_flow = ControlFlow::Exit,
+                WindowEvent::CloseRequested => {
+                    println!("bye bye");
+                    window_target.exit();
+                }
+
                 WindowEvent::Resized(physical_size) => app.on_resize(physical_size),
                 WindowEvent::KeyboardInput {
                     device_id: _,
-                    input,
-                    is_synthetic: _,
-                } => on_keyboard_input(&mut app, input),
+                    is_synthetic,
+                    event,
+                } => on_keyboard_input(&mut app, event),
                 WindowEvent::MouseInput {
                     device_id,
                     state,
@@ -46,13 +48,17 @@ fn runner(mut app: App) {
                 _ => (),
             },
 
-            Event::MainEventsCleared => app.update(),
+            Event::AboutToWait => {
+                app.update();
+                let window = app.world.singletons.get::<Window>().unwrap();
+                window.request_redraw();
+            }
             _ => (),
         }
     });
 }
 
-fn on_curser_moved(app: &mut App, cursor_pos: Vector2<f32>) {
+fn on_curser_moved(app: &mut App, cursor_pos: Vec2) {
     let input = app.world.singletons.get_mut::<Input>().unwrap();
     input.on_curser_moved(cursor_pos);
 }
@@ -65,7 +71,7 @@ fn on_mouse_input(app: &mut App, mouse_input: MouseButtonInput) {
     app.on_mouse_input();
 }
 
-fn on_keyboard_input(app: &mut App, key_input: KeyboardInput) {
+fn on_keyboard_input(app: &mut App, key_input: KeyEvent) {
     let input = app.world.singletons.get_mut::<Input>().unwrap();
     input.on_keyboard_input(key_input);
     app.on_keyboard_input();
@@ -73,12 +79,7 @@ fn on_keyboard_input(app: &mut App, key_input: KeyboardInput) {
 
 impl Plugin for WindowPlugin {
     fn build(app: &mut crate::app::App) {
-        let event_loop = EventLoop::new();
-        let monitor = event_loop
-            .available_monitors()
-            .next()
-            .expect("no monitor found!");
-        let _mode = monitor.video_modes().next().expect("no mode found");
+        let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
         app.world.singletons.insert(window);

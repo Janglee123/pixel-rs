@@ -1,7 +1,7 @@
 use crate::{
     math::{
         honeycomb::HEXAGON_INDICES,
-        transform2d::{self, Matrix3, Transform2d},
+        transform2d::{self, Transform2d},
     },
     plugins::core::{camera_plugin::Camera, render_plugin::Renderer},
 };
@@ -14,12 +14,13 @@ use std::{
     rc::Rc,
     sync::Arc,
 };
+use glam::Mat3;
 use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, RenderPass, RenderPipeline};
 
 use crate::{
     app::Plugin,
     ecs::world::{Component, World},
-    math::{color::Color, vector2::Vector2},
+    math::color::Color,
     plugins::core::render_plugin::Gpu,
     query, query_mut, zip,
 };
@@ -29,7 +30,7 @@ use super::{mesh::Mesh, texture::Texture, vertex::Vertex};
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 pub struct InstanceData {
-    matrix: Matrix3,
+    matrix: Mat3,
     color: [f32; 3],
     _padding: u32,
 }
@@ -279,7 +280,7 @@ impl Plugin for MultiInstanceMeshRenderer {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Camera buffer"),
-                contents: bytemuck::cast_slice(&[Matrix3::IDENTITY]),
+                contents: bytemuck::cast_slice(&[Mat3::IDENTITY]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -331,7 +332,7 @@ impl Plugin for MultiInstanceMeshRenderer {
                     polygon_mode: wgpu::PolygonMode::Fill,
                     conservative: false,
                 },
-                
+
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState {
                     count: 1,

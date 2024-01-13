@@ -13,7 +13,6 @@ use super::core::{
     render_plugin::RenderPlugin,
 };
 
-pub mod draw;
 pub mod mesh;
 pub mod multi_instance_mesh_renderer;
 pub mod sprite_renderer;

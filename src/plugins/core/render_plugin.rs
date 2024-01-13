@@ -62,6 +62,7 @@ impl Gpu {
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[], // Todo: Figure out what this is
         };
 
         let texture = self
@@ -173,10 +174,12 @@ pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
                     b: 1.0,
                     a: 1.0,
                 }),
-                store: true,
+                store: wgpu::StoreOp::Store,
             },
         })],
         depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
     }));
 
     // dynamic dispatch lol
@@ -200,9 +203,23 @@ impl Plugin for RenderPlugin {
     fn build(app: &mut App) {
         let window = app.world.singletons.get::<Window>().unwrap();
 
-        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+        let instance_descriptor = wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            ..Default::default()
+        };
 
-        let surface = unsafe { instance.create_surface(&window) };
+        let instance = wgpu::Instance::new(instance_descriptor);
+
+        let surface = unsafe {
+            let surface = instance.create_surface(window);
+            if let Err(err) = surface {
+                panic!("Create surface error! {err}");
+                None
+            } else {
+                surface.ok()
+            }
+        }
+        .unwrap();
 
         let adapter_options = RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
@@ -229,15 +246,24 @@ impl Plugin for RenderPlugin {
         let (device, queue) =
             pollster::block_on(adapter.request_device(&device_descriptor, None)).unwrap();
 
-        let format = surface.get_supported_formats(&adapter)[0];
+        let surface_caps = surface.get_capabilities(&adapter);
+
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .copied()
+            .filter(|f| f.is_srgb())
+            .next()
+            .unwrap_or(surface_caps.formats[0]);
 
         let surface_config = SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format,
+            format: surface_format,
             width: window.inner_size().width,
             height: window.inner_size().height,
             present_mode: wgpu::PresentMode::AutoNoVsync,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: vec![],
         };
 
         surface.configure(&device, &surface_config);

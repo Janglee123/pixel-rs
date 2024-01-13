@@ -1,3 +1,5 @@
+use glam::Vec2;
+
 use crate::{
     app::Plugin,
     ecs::world::{self, World},
@@ -6,7 +8,6 @@ use crate::{
         color::Color,
         honeycomb::Hextor,
         transform2d::{self, Transform2d},
-        vector2::Vector2,
     },
     plugins::{
         asset_types::image::Image,
@@ -16,7 +17,7 @@ use crate::{
             render_plugin::Gpu,
         },
         renderer_plugins::{
-            sprite_renderer::{self, Quad, Sprite, SpriteRendererData},
+            sprite_renderer::{self, Sprite, SpriteRendererData},
             texture::{self, Texture},
         },
     },
@@ -55,7 +56,7 @@ impl Plugin for RoadPlacerPlugin {
         let sprite = Sprite::new(select_sprite, Color::new(1.0, 1.0, 1.0, 0.5), 0);
 
         let mut transform2d = Transform2d::IDENTITY;
-        transform2d.scale = Vector2::new(32.0, 32.0);
+        transform2d.scale = Vec2::new(32.0, 32.0);
 
         let road_placer = RoadPlacer {
             current_pos: Hextor::new(0, 0),
@@ -73,19 +74,19 @@ fn on_input(world: &mut World) {
 
     let input = world.singletons.get::<Input>().unwrap();
 
-    if input.is_key_pressed(winit::event::VirtualKeyCode::W) {
+    if input.is_key_pressed(winit::keyboard::KeyCode::KeyW) {
         road_placer.current_pos.r += 1;
     }
 
-    if input.is_key_pressed(winit::event::VirtualKeyCode::S) {
+    if input.is_key_pressed(winit::keyboard::KeyCode::KeyS) {
         road_placer.current_pos.r -= 1;
     }
 
-    if input.is_key_pressed(winit::event::VirtualKeyCode::A) {
+    if input.is_key_pressed(winit::keyboard::KeyCode::KeyA) {
         road_placer.current_pos.q -= 1;
     }
 
-    if input.is_key_pressed(winit::event::VirtualKeyCode::D) {
+    if input.is_key_pressed(winit::keyboard::KeyCode::KeyD) {
         road_placer.current_pos.q += 1;
     }
 
@@ -94,7 +95,7 @@ fn on_input(world: &mut World) {
 
     let tile = road_placer.current_pos;
 
-    if input.is_key_pressed(winit::event::VirtualKeyCode::Space) {
+    if input.is_key_pressed(winit::keyboard::KeyCode::Space) {
         let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&tile) {
             level_manager.place_road(tile);
