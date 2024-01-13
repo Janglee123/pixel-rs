@@ -6,8 +6,8 @@
 6. [ ] Think about render Asset. 
 7. [ ] Add index_buffer and vertex_buffer into Gpu like texture_buffer
 8. [ ] Sprite size and scale decouple
-9. [ ] Fix Math
-10. [ ] Add Viewport, screenToWorld, worldToScreen 
-11. [ ] Add mouse input
+9. [x] Fix Math
+10. [x] Add Viewport, screenToWorld, worldToScreen 
+11. [x] Add mouse input
 12. [ ] `BufferVec<T>` from bevy
 13. [ ] Convert rgb to srgb in shader

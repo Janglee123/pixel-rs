@@ -17,12 +17,6 @@ pub enum ButtonState {
 }
 
 #[derive(Default, Debug)]
-pub struct MousePosition {
-    pub world_position: Vec2,
-    pub screen_position: Vec2,
-}
-
-#[derive(Default, Debug)]
 pub struct MouseMotion {
     pub delta: Vec2,
 }
@@ -38,7 +32,7 @@ pub struct Input {
     mouse_input: HashMap<MouseButton, MouseButtonInput>,
     keyboard_input: HashMap<KeyCode, KeyEvent>,
     mouse_motion: MouseMotion,
-    mouse_position: MousePosition,
+    mouse_position: Vec2,
 }
 
 impl Input {
@@ -47,7 +41,7 @@ impl Input {
     }
 
     pub fn on_curser_moved(&mut self, cursor_pos: Vec2) {
-        self.mouse_position.screen_position = cursor_pos;
+        self.mouse_position = cursor_pos;
     }
 
     pub fn on_keyboard_input(&mut self, input: KeyEvent) {
@@ -78,6 +72,10 @@ impl Input {
         };
 
         result
+    }
+
+    pub fn mouse_position(&self) -> Vec2 {
+        self.mouse_position
     }
 }
 

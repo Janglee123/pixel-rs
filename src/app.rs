@@ -5,13 +5,22 @@ use crate::{
     plugins::core::render_plugin::Renderer,
 };
 
+// Order is
+// PreUpdate -> Update -> PreRender -> Render
+// PreInput -> Input. Input is called by winit. Not sure in which order but most likely before PreUpdate
+// Resize is called by winit
+// Start is called only once on startup
+
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SystemStage {
-    Update,
-    Resize,
     Start,
+
+    Resize,
+
     PreInput,
     Input,
+
+    Update,
     PreUpdate,
 
     PreRender,

@@ -1,5 +1,6 @@
 use glam::Vec2;
 use winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
@@ -44,7 +45,9 @@ fn runner(mut app: App) {
                     device_id,
                     position,
                     ..
-                } => {}
+                } => {
+                    on_curser_moved(&mut app, position.cast::<f32>());
+                }
                 _ => (),
             },
 
@@ -58,9 +61,22 @@ fn runner(mut app: App) {
     });
 }
 
-fn on_curser_moved(app: &mut App, cursor_pos: Vec2) {
-    let input = app.world.singletons.get_mut::<Input>().unwrap();
-    input.on_curser_moved(cursor_pos);
+fn on_curser_moved(app: &mut App, cursor_pos: PhysicalPosition<f32>) {
+    let (input, window) = app
+        .world
+        .singletons
+        .get_many_mut::<(Input, Window)>()
+        .unwrap();
+
+    let window_size = window.inner_size().cast::<f32>();
+
+    let x_pos = (cursor_pos.x / window_size.width - 0.5) * 2.0;
+    let y_pos = (0.5 - cursor_pos.y / window_size.height) * 2.0;
+
+    let raw_screen_pos = cursor_pos;
+    let screen_pos = Vec2::new(x_pos, y_pos);
+
+    input.on_curser_moved(screen_pos);
 }
 
 fn on_mouse_input(app: &mut App, mouse_input: MouseButtonInput) {

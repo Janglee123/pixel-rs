@@ -13,6 +13,7 @@ use crate::{
         asset_types::image::Image,
         core::{
             asset_storage::{self, AssetStorage},
+            camera_plugin::Viewport,
             input_plugin::Input,
             render_plugin::Gpu,
         },
@@ -64,9 +65,20 @@ impl Plugin for RoadPlacerPlugin {
 
         app.world.insert_entity((sprite, transform2d, road_placer));
 
-        app.schedular
-            .add_system(crate::app::SystemStage::Input, on_input);
+        // app.schedular
+        //     .add_system(crate::app::SystemStage::Input, on_input);
+
+        app.schedular.add_system(crate::app::SystemStage::Update, on_update);
     }
+}
+
+fn on_update(world: &mut World) {
+    let (input, viewport) = world.singletons.get_many::<(Input, Viewport)>().unwrap();
+    let mouse_pos = input.mouse_position();
+    let world_mouse_pos = viewport.screen_to_world(mouse_pos);
+
+    let (transform2d, road_placer) = query_mut!(world, Transform2d, RoadPlacer).next().unwrap();
+    transform2d.position = world_mouse_pos;
 }
 
 fn on_input(world: &mut World) {
@@ -90,8 +102,8 @@ fn on_input(world: &mut World) {
         road_placer.current_pos.q += 1;
     }
 
-    transform2d.position = road_placer.current_pos.to_vector(32.0).into();
-    println!("new position: {:?}", transform2d.position);
+    // transform2d.position = road_placer.current_pos.to_vector(32.0).into();
+    // println!("new position: {:?}", transform2d.position);
 
     let tile = road_placer.current_pos;
 
