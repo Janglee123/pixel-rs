@@ -54,10 +54,9 @@ impl Plugin for RoadPlacerPlugin {
             74,
         );
 
-        let sprite = Sprite::new(select_sprite, Color::new(1.0, 1.0, 1.0, 0.5), 0);
+        let sprite = Sprite::new(select_sprite, Color::new(1.0, 1.0, 1.0, 1.0), Vec2::new(16.0, 32.0), 0);
 
         let mut transform2d = Transform2d::IDENTITY;
-        transform2d.scale = Vec2::new(32.0, 32.0);
 
         let road_placer = RoadPlacer {
             current_pos: Hextor::new(0, 0),
@@ -79,6 +78,9 @@ fn on_update(world: &mut World) {
 
     let (transform2d, road_placer) = query_mut!(world, Transform2d, RoadPlacer).next().unwrap();
     transform2d.position = world_mouse_pos;
+    transform2d.rotation += 0.001;
+    transform2d.scale = mouse_pos * 4.0;
+
 }
 
 fn on_input(world: &mut World) {

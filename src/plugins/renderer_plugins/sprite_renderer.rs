@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use glam::{Mat3, Vec4};
+use glam::{Mat3, Vec2, Vec4};
 use hashbrown::HashMap;
 use std::{
     ops::{Range, RangeBounds},
@@ -74,7 +74,7 @@ struct TextureDrawData {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 struct SpriteInstanceData {
     color: [f32; 4],
-    matrix: AlignedMatrix,  // Todo: instead wasting 8 bytes per instance, I can pack them in array and convert into transform inside shader
+    matrix: AlignedMatrix, // Todo: instead wasting 8 bytes per instance, I can pack them in array and convert into transform inside shader
     z_index: i32,
     _padding: [u32; 3],
 }
@@ -90,10 +90,10 @@ impl SpriteInstanceData {
     }
 
     const EMPTY: SpriteInstanceData = SpriteInstanceData {
-        color: [0.0; 4], // 4
+        color: [0.0; 4],                 // 4
         matrix: AlignedMatrix::IDENTITY, //12
-        z_index: 1, //1
-        _padding: [0; 3], //3
+        z_index: 1,                      //1
+        _padding: [0; 3],                //3
     };
 }
 
@@ -298,9 +298,12 @@ pub fn update_cache(world: &mut World) {
             map.insert(texture_id, Vec::new());
         }
 
+        let mut transform2d = transform2d.clone();
+        transform2d.scale *= sprite.size;
+
         let sprite_data = SpriteInstanceData::new(
             sprite.color.into(),
-            AlignedMatrix::from_transform(transform2d),
+            AlignedMatrix::from_transform(&transform2d),
             sprite.z_index,
         );
 
@@ -333,16 +336,18 @@ pub fn update_cache(world: &mut World) {
 
 pub struct Sprite {
     image: AssetRef<Image>,
+    size: Vec2,
     color: Color,
     z_index: i32,
 }
 
 impl Sprite {
-    pub fn new(image: AssetRef<Image>, color: Color, z_index: i32) -> Self {
+    pub fn new(image: AssetRef<Image>, color: Color, size: Vec2, z_index: i32) -> Self {
         Self {
             image,
             color,
             z_index,
+            size,
         }
     }
 }
