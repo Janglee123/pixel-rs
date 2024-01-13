@@ -1,7 +1,7 @@
 use std::ops::Mul;
 
 use bytemuck::{Pod, Zeroable};
-use glam::{Mat3, Vec2, Vec3};
+use glam::{Mat2, Mat3, Vec2, Vec3, Vec4};
 
 #[derive(Debug, Default, Clone)]
 
@@ -49,4 +49,38 @@ impl Transform2d {
         rotation: 0.0,
         scale: Vec2 { x: 1.0, y: 1.0 },
     };
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug, Default)]
+pub struct AlignedMatrix {
+    pub x_axis: Vec4,
+    pub y_axis: Vec4,
+    pub origin: Vec4,
+}
+
+impl AlignedMatrix {
+    pub const IDENTITY: AlignedMatrix = AlignedMatrix {
+        x_axis: Vec4::new(1.0, 0.0, 0.0, 0.0),
+        y_axis: Vec4::new(0.0, 1.0, 0.0, 0.0),
+        origin: Vec4::new(0.0, 0.0, 1.0, 0.0),
+    };
+
+    pub fn from_transform(value: &Transform2d) -> Self {
+        let mat = Mat3::from_scale_angle_translation(value.scale, value.rotation, value.position);
+
+        Self {
+            x_axis: (mat.x_axis, 0.0).into(),
+            y_axis: (mat.y_axis, 0.0).into(),
+            origin: (mat.z_axis, 0.0).into(),
+        }
+    }
+
+    pub fn from_mat3(mat: &Mat3) -> Self {
+        Self {
+            x_axis: (mat.x_axis, 0.0).into(),
+            y_axis: (mat.y_axis, 0.0).into(),
+            origin: (mat.z_axis, 0.0).into(),
+        }
+    }
 }

@@ -5,7 +5,7 @@ use winit::window::Window;
 use crate::{
     app::{Plugin, SystemStage},
     ecs::world::{self, World},
-    math::transform2d::Transform2d,
+    math::transform2d::{AlignedMatrix, Transform2d},
     query, query_mut, zip,
 };
 
@@ -55,7 +55,7 @@ impl Plugin for CameraPlugin {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Camera buffer"),
-                contents: bytemuck::cast_slice(&[Mat3::IDENTITY]),
+                contents: bytemuck::cast_slice(&[AlignedMatrix::IDENTITY]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -94,8 +94,11 @@ impl Renderer for CameraPlugin {
         let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
         let projection = transform2d.create_matrix() * camera.projection;
 
-        gpu.queue
-            .write_buffer(&data.buffer, 0, bytemuck::cast_slice(&[projection]));
+        gpu.queue.write_buffer(
+            &data.buffer,
+            0,
+            bytemuck::cast_slice(&[AlignedMatrix::from_mat3(&projection)]),
+        );
     }
 }
 

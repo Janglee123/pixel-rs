@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use glam::Mat3;
+use glam::{Mat3, Vec4};
 use hashbrown::HashMap;
 use std::{
     ops::{Range, RangeBounds},
@@ -13,7 +13,7 @@ use crate::{
     ecs::world::{Component, World},
     math::{
         color::Color,
-        transform2d::{self, Transform2d},
+        transform2d::{self, AlignedMatrix, Transform2d},
     },
     plugins::{
         asset_types::image::Image,
@@ -74,13 +74,13 @@ struct TextureDrawData {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
 struct SpriteInstanceData {
     color: [f32; 4],
-    matrix: Mat3, // Todo: Fix this to Affine3 or Vec4 x, Vec4 y, Vec4 position. too much waste
+    matrix: AlignedMatrix,  // Todo: instead wasting 8 bytes per instance, I can pack them in array and convert into transform inside shader
     z_index: i32,
     _padding: [u32; 3],
 }
 
 impl SpriteInstanceData {
-    fn new(color: [f32; 4], matrix: Mat3, z_index: i32) -> Self {
+    fn new(color: [f32; 4], matrix: AlignedMatrix, z_index: i32) -> Self {
         Self {
             color,
             matrix,
@@ -90,10 +90,10 @@ impl SpriteInstanceData {
     }
 
     const EMPTY: SpriteInstanceData = SpriteInstanceData {
-        color: [0.0; 4],
-        matrix: Mat3::IDENTITY,
-        z_index: 1,
-        _padding: [0; 3],
+        color: [0.0; 4], // 4
+        matrix: AlignedMatrix::IDENTITY, //12
+        z_index: 1, //1
+        _padding: [0; 3], //3
     };
 }
 
@@ -300,7 +300,7 @@ pub fn update_cache(world: &mut World) {
 
         let sprite_data = SpriteInstanceData::new(
             sprite.color.into(),
-            transform2d.create_matrix(),
+            AlignedMatrix::from_transform(transform2d),
             sprite.z_index,
         );
 
