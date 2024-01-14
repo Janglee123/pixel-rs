@@ -17,6 +17,7 @@ pub trait Asset {
     fn from_binary(binary: Vec<u8>) -> Self;
 }
 
+#[derive(Debug)]
 pub struct AssetRef<T: Asset> {
     id: u64,
     marker: PhantomData<T>,

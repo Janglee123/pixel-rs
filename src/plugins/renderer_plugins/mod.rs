@@ -4,7 +4,7 @@ use self::{
     mesh::Mesh, 
     multi_instance_mesh_renderer::MultiInstanceMeshRenderer,
     sprite_renderer::SpritePlugin, 
-    // tilemap_renderer::TileMapRenderer,
+    tilemap_renderer::TileMapRenderer,
 };
 
 use super::core::{
@@ -17,14 +17,14 @@ pub mod mesh;
 pub mod multi_instance_mesh_renderer;
 pub mod sprite_renderer;
 pub mod texture;
-// pub mod tilemap_renderer;
+pub mod tilemap_renderer;
 pub mod vertex;
 
 pub struct Renderer2dPlugin;
 
 impl Plugin for Renderer2dPlugin {
     fn build(app: &mut crate::app::App) {
-        // app.register_plugin::<TileMapRenderer>();
+        app.register_plugin::<TileMapRenderer>();
         app.register_plugin::<SpritePlugin>();
         app.register_plugin::<MultiInstanceMeshRenderer>();
 

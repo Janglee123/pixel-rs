@@ -1,6 +1,6 @@
 1. [ ] Asset Path 
 2. [ ] ECS improvement
-3. [ ] TileMap improvement depends upon 5, 7
+3. [ ] TileMap improvement depends upon 5
 4. [x] Common camera buffer
 5. [x] Make Mesh Asset
 6. [ ] Think about render Asset. 
@@ -12,3 +12,5 @@
 12. [ ] `BufferVec<T>` from bevy
 13. [ ] Convert rgb to srgb in shader
 14. [ ] Figure out why (-x, +y) or (+x, -y) scale is not working
+15. [ ] Think about either I need common Vertex class or not
+16. [ ] `Struct wgpu_util::DynamicBuffer`: A wgpu::Buffer which dynamically grows based on the contents.

@@ -3,6 +3,7 @@ use image::GenericImageView;
 
 use crate::plugins::core::asset_storage::Asset;
 
+#[derive(Debug)]
 pub struct Image {
     data: Vec<u8>,
     size: UVec2,

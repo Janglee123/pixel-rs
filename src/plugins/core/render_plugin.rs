@@ -145,6 +145,13 @@ impl Gpu {
     pub fn get_mesh_buffers(&self, id: u64) -> Option<&MeshBuffers> {
         self.mesh_data_map.get(&id)
     }
+
+    pub fn get_aligned_storage_buffer_size(&self, size: u32) -> u32 {
+        let limits = self.device.limits();
+        let buffer_length = limits.min_storage_buffer_offset_alignment;
+        let upper_size = (size - 1) / buffer_length;
+        (upper_size + 1) * buffer_length
+    }
 }
 
 pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
