@@ -16,15 +16,7 @@ use hashbrown::HashMap;
 use app::App;
 use ecs::world::{self, *};
 use plugins::{
-    core::{
-        asset_storage::{self, Asset, AssetStoragePlugin},
-        // asset_storage::{self, Asset, AssetStorage},
-        camera_plugin::CameraPlugin,
-        input_plugin::InputPlugin,
-        render_plugin::RenderPlugin,
-        timer_plugin::TimerPlugin,
-        window_plugin::WindowPlugin,
-    },
+    core::{camera_plugin::CameraPlugin, CorePlugins},
     other::tweener::TweenerPlugin,
     renderer_plugins::Renderer2dPlugin,
 };
@@ -48,12 +40,6 @@ struct Bar {
     bar: u8,
 }
 
-impl Asset for Bar {
-    fn from_binary(binary: Vec<u8>) -> Self {
-        todo!()
-    }
-}
-
 fn system(world: &mut World) {
     for bar in query_mut!(world, Bar) {
         println!("{}", bar.bar);
@@ -66,12 +52,9 @@ fn main() {
     let mut app = App::new();
 
     // Core plugins
-    app.register_plugin::<AssetStoragePlugin>();
-    app.register_plugin::<InputPlugin>();
-    app.register_plugin::<WindowPlugin>();
-    app.register_plugin::<RenderPlugin>();
+    app.register_plugin::<CorePlugins>();
+
     app.register_plugin::<CameraPlugin>();
-    app.register_plugin::<TimerPlugin>();
     app.register_plugin::<TweenerPlugin>();
 
     app.register_plugin::<Renderer2dPlugin>();

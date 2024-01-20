@@ -14,8 +14,12 @@ use crate::{
         core::{
             asset_storage::{self, AssetStorage},
             camera_plugin::Viewport,
-            input_plugin::Input,
-            render_plugin::Gpu, timer_plugin::Time,
+            input::{
+                input_plugin::{Input, MouseButton},
+                keycode::KeyCode,
+            },
+            render_plugin::Gpu,
+            timer_plugin::Time,
         },
         other::tweener::{self, PositionTweener},
         renderer_plugins::{
@@ -103,12 +107,12 @@ fn on_update(world: &mut World) {
         tweener.tween(transform2d.position, end, 0.05, tweener::Easing::Linear);
     }
 
-    if input.is_mouse_button_pressed(winit::event::MouseButton::Left) {
+    if input.is_mouse_button_pressed(MouseButton::Left) {
         let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&hex_pos) {
             level_manager.place_road(hex_pos);
             world.emit(RoadAddedEvent { new_road: hex_pos });
-        } 
+        }
     }
 
     let time = world.singletons.get::<Time>().unwrap().total_time;
@@ -122,19 +126,19 @@ fn on_input(world: &mut World) {
 
     let input = world.singletons.get::<Input>().unwrap();
 
-    if input.is_key_pressed(winit::keyboard::KeyCode::KeyW) {
+    if input.is_key_pressed(KeyCode::KeyW) {
         road_placer.current_pos.r += 1;
     }
 
-    if input.is_key_pressed(winit::keyboard::KeyCode::KeyS) {
+    if input.is_key_pressed(KeyCode::KeyS) {
         road_placer.current_pos.r -= 1;
     }
 
-    if input.is_key_pressed(winit::keyboard::KeyCode::KeyA) {
+    if input.is_key_pressed(KeyCode::KeyA) {
         road_placer.current_pos.q -= 1;
     }
 
-    if input.is_key_pressed(winit::keyboard::KeyCode::KeyD) {
+    if input.is_key_pressed(KeyCode::KeyD) {
         road_placer.current_pos.q += 1;
     }
 
@@ -143,7 +147,7 @@ fn on_input(world: &mut World) {
 
     let tile = road_placer.current_pos;
 
-    if input.is_key_pressed(winit::keyboard::KeyCode::Space) {
+    if input.is_key_pressed(KeyCode::Space) {
         let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&tile) {
             level_manager.place_road(tile);

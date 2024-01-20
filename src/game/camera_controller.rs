@@ -2,10 +2,10 @@ use glam::{vec2, vec3, Vec2, Vec3};
 
 use crate::{
     app::Plugin,
-    math::transform2d::{self, Transform2d},
+    math::transform2d::Transform2d,
     plugins::core::{
         camera_plugin::{Camera, Viewport},
-        input_plugin::Input,
+        input::input_plugin::{Input, MouseButton},
     },
     query_mut, zip, World,
 };
@@ -38,7 +38,7 @@ fn on_update(world: &mut World) {
 
     let current_position = input.mouse_position();
 
-    let is_right_pressed = input.is_mouse_button_pressed(winit::event::MouseButton::Right);
+    let is_right_pressed = input.is_mouse_button_pressed(MouseButton::Right);
 
     if camera_controller.is_right_click_pressed != is_right_pressed {
         if is_right_pressed {
