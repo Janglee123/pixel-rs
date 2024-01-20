@@ -1,6 +1,6 @@
 use std::default;
 
-use glam::{Mat3, Vec2, Vec3};
+use glam::{vec3, Mat3, Vec2, Vec3};
 use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
 use winit::window::Window;
 
@@ -110,19 +110,23 @@ pub fn on_resize(world: &mut World) {
 
     camera.projection.x_axis.x = 2.0 / size.width as f32;
     camera.projection.y_axis.y = 2.0 / size.height as f32;
+
+    let viewport = world.singletons.get_mut::<Viewport>().unwrap();
+    viewport.size = Vec2::new(size.width as f32, size.height as f32);
 }
 
 #[derive(Debug, Default)]
 pub struct Viewport {
     projection_view_mat: Mat3,
     inv_projection_view_mat: Mat3,
+    size: Vec2,
 }
 
 impl Viewport {
     /// converts screen pos to world pos based on orientation of camera.
     /// NOTE: `screen_pos` must be in range of `-0.5` to `0.5` for `x` and `y`.
     pub fn screen_to_world(&self, screen_pos: Vec2) -> Vec2 {
-        let a = self.inv_projection_view_mat * Vec3::new(screen_pos.x, screen_pos.y, 0.0);
+        let a = self.inv_projection_view_mat * Vec3::new(screen_pos.x, screen_pos.y, 1.0);
 
         Vec2::new(a.x, a.y)
     }
@@ -131,6 +135,14 @@ impl Viewport {
         let a = self.projection_view_mat * Vec3::new(world_pos.x, world_pos.y, 0.0);
 
         Vec2::new(a.x, a.y)
+    }
+
+    pub fn get_screen_to_world_mat(&self) -> &Mat3 {
+        &self.inv_projection_view_mat
+    }
+
+    pub fn get_size(&self) -> Vec2 {
+        self.size
     }
 }
 

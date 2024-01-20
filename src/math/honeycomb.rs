@@ -46,9 +46,9 @@ impl Hextor {
         let mut r = float_r.round();
         let mut s = float_s.round();
 
-        let q_frac = float_q - q;
-        let r_frac = float_r - r;
-        let s_frac = float_s - s;
+        let q_frac = (float_q - q).abs();
+        let r_frac = (float_r - r).abs();
+        let s_frac = (float_s - s).abs();
 
         if q_frac > r_frac && q_frac > s_frac {
             q = -r - s;

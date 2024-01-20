@@ -5,6 +5,7 @@ use crate::{app::Plugin, ecs::world::World};
 pub struct Time {
     pub frame_count: u64,
     pub delta_time: f32,
+    pub total_time: f32,
 
     last_frame_instant: Instant,
 }
@@ -16,6 +17,7 @@ impl Plugin for TimerPlugin {
         let time = Time {
             frame_count: 0,
             delta_time: 0.0,
+            total_time: 0.0,
             last_frame_instant: Instant::now(),
         };
 
@@ -29,5 +31,6 @@ fn update_timer(world: &mut World) {
     let time = world.singletons.get_mut::<Time>().unwrap();
 
     time.delta_time = time.last_frame_instant.elapsed().as_secs_f32();
+    time.total_time += time.delta_time;
     time.last_frame_instant = Instant::now();
 }

@@ -6,6 +6,7 @@ use crate::{
     plugins::core::{camera_plugin::Camera, render_plugin::Renderer},
 };
 
+use glam::Mat3;
 use std::{
     any::{Any, TypeId},
     borrow::BorrowMut,
@@ -14,7 +15,6 @@ use std::{
     rc::Rc,
     sync::Arc,
 };
-use glam::Mat3;
 use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, RenderPass, RenderPipeline};
 
 use crate::{

@@ -156,7 +156,7 @@ impl Plugin for SpritePlugin {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Sprite data buffer"),
                 contents: bytemuck::cast_slice(
-                    &[SpriteInstanceData::EMPTY; 512], // Lets assume there wont be more than 512 instance of
+                    &[SpriteInstanceData::EMPTY; 1_000_000], // Lets assume there wont be more than 512 instance of
                 ),
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             });
@@ -335,10 +335,10 @@ pub fn update_cache(world: &mut World) {
 }
 
 pub struct Sprite {
-    image: AssetRef<Image>,
-    size: Vec2,
-    color: Color,
-    z_index: i32,
+    pub image: AssetRef<Image>,
+    pub size: Vec2,
+    pub color: Color,
+    pub z_index: i32,
 }
 
 impl Sprite {

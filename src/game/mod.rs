@@ -1,12 +1,14 @@
 use crate::app::Plugin;
 use crate::math::honeycomb::Hextor;
 
+use self::camera_controller::CameraControllerPlugin;
 use self::core::level_manager::{self, LevelManager, RoadAddedEvent, TilesAddedEvent};
 use self::ground::GroundPlugin;
 use self::resources::level_descriptors::get_dummy_level;
 use self::road::RoadPlugin;
 use self::road_placer::RoadPlacerPlugin;
 
+mod camera_controller;
 mod core;
 mod ground;
 mod resources;
@@ -20,6 +22,7 @@ impl Plugin for GamePlugin {
         app.register_plugin::<GroundPlugin>();
         app.register_plugin::<RoadPlugin>();
         app.register_plugin::<RoadPlacerPlugin>();
+        app.register_plugin::<CameraControllerPlugin>();
 
         let level_descriptor = get_dummy_level();
         let level_manager = LevelManager::new(&level_descriptor);

@@ -10,10 +10,37 @@ use winit::{
 
 use crate::{app::Plugin, ecs::world::World};
 
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+    Back,
+    Forward,
+    Other(u16),
+}
+
 pub enum ButtonState {
-    JustPressed, // Will implement
     Pressed,
     Released,
+}
+
+pub struct MouseButtonEvent {
+
+}
+
+pub enum MouseEvent {
+    MouseButtonEvent,
+    MouseMotionEvent,
+    MouseWheelEvent,
+}
+
+pub enum KeyboardEvent {
+    KeyEvent,
+}
+
+pub enum InputEvent {
+    MouseEvent(MouseEvent),
+    KeyboardEvent(KeyboardEvent),
 }
 
 #[derive(Default, Debug)]
@@ -77,6 +104,10 @@ impl Input {
     pub fn mouse_position(&self) -> Vec2 {
         self.mouse_position
     }
+
+    pub fn mouse_delta_motion(&self) -> Vec2 {
+        self.mouse_motion.delta
+    }
 }
 
 pub struct InputPlugin;
@@ -85,17 +116,5 @@ impl Plugin for InputPlugin {
     fn build(app: &mut crate::app::App) {
         let input = Input::default();
         app.world.singletons.insert(input);
-
-        app.schedular
-            .add_system(crate::app::SystemStage::Input, print_input_keys);
     }
-}
-
-pub fn print_input_keys(world: &mut World) {
-    let input = world.singletons.get_mut::<Input>().unwrap();
-
-    println!(
-        "input: {:?}",
-        input.is_mouse_button_pressed(MouseButton::Left)
-    );
 }

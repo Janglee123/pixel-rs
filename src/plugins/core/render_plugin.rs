@@ -212,6 +212,7 @@ impl Plugin for RenderPlugin {
 
         let instance_descriptor = wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
+
             ..Default::default()
         };
 

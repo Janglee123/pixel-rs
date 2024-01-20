@@ -18,11 +18,15 @@ use std::{
     any::{Any, TypeId},
     borrow::BorrowMut,
     mem,
+    num::NonZeroU64,
     ops::Deref,
     rc::Rc,
-    sync::Arc, num::NonZeroU64,
+    sync::Arc,
 };
-use wgpu::{include_wgsl, util::DeviceExt, BindGroup, BindGroupLayout, RenderPass, RenderPipeline, BindingResource, BufferBinding};
+use wgpu::{
+    include_wgsl, util::DeviceExt, BindGroup, BindGroupLayout, BindingResource, BufferBinding,
+    RenderPass, RenderPipeline,
+};
 
 use crate::{
     app::Plugin,
@@ -33,6 +37,9 @@ use crate::{
 };
 
 use super::{mesh::Mesh, texture::Texture, vertex::Vertex};
+
+const MAIN_BUFFER_SIZE: u64 = 1 << 20;
+const TILE_DATA_BUFFER_SIZE: u64 = 1 << 14;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -163,18 +170,21 @@ impl Plugin for TileMapRenderer {
                     }],
                 });
 
-        let tile_map_data_buffer =
-            gpu.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("tilemap_data_buffer"),
-                    contents: bytemuck::cast_slice(&[0u8; 4096]),
-                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                });
+        let align_mask = wgpu::COPY_BUFFER_ALIGNMENT - 1;
+        let padded_size =
+            ((MAIN_BUFFER_SIZE + align_mask) & !align_mask).max(wgpu::COPY_BUFFER_ALIGNMENT);
+
+        let tile_map_data_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("tile map data buffer"),
+            size: padded_size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         let buffer_binding = BufferBinding {
             buffer: &tile_map_data_buffer,
             offset: 0,
-            size: Some(NonZeroU64::new(1024).unwrap()),
+            size: Some(NonZeroU64::new(TILE_DATA_BUFFER_SIZE).unwrap()),
         };
 
         let tile_map_data_bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {

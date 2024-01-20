@@ -1,32 +1,41 @@
+use std::default;
+
 use glam::Vec2;
 
 use crate::{
     app::Plugin,
     ecs::world::World,
-    math::{
-        transform2d::{self, Transform2d},
-    },
+    math::transform2d::{self, Transform2d},
     plugins::core::timer_plugin::Time,
     query_mut, zip,
 };
 
 pub struct TweenerPlugin;
 
+#[derive(Debug)]
 pub enum Easing {
     Linear,
     Sin,
 }
 
-struct TweenerState<T: Interpolate + Clone> {
-    pub start: T,
-    pub end: T,
-    pub duration: f32,
-    pub easing: Easing,
-
-    time_elapsed: f32,
+impl Default for Easing {
+    fn default() -> Self {
+        Self::Linear
+    }
 }
 
-impl<T: Interpolate + Clone> TweenerState<T> {
+#[derive(Debug, Default)]
+struct TweenerState<T: Interpolate + Clone + Default> {
+    start: T,
+    end: T,
+    duration: f32,
+    easing: Easing,
+
+    time_elapsed: f32,
+    is_playing: bool,
+}
+
+impl<T: Interpolate + Clone + Default> TweenerState<T> {
     pub fn tween(&mut self, delta_time: f32) -> T {
         self.time_elapsed += delta_time;
 
@@ -34,20 +43,19 @@ impl<T: Interpolate + Clone> TweenerState<T> {
             self.time_elapsed = self.duration;
         }
 
-        let uniform_time_elapsed = self.time_elapsed / self.duration;
+        let mut uniform_time_elapsed = self.time_elapsed / self.duration;
+
+        if uniform_time_elapsed >= 1.0 {
+            uniform_time_elapsed = 1.0
+        }
 
         let eased_time = get_eased_value(uniform_time_elapsed, &self.easing);
-
-        if uniform_time_elapsed == 1.0 {
-            // just loop here so I can smile while looking at things moving
-            // (self.start, self.end) = (self.end.clone(), self.start.clone());
-            // self.time_elapsed = 0.0;
-        }
 
         T::interpolate(&self.start, &self.end, eased_time)
     }
 }
 
+#[derive(Debug, Default)]
 pub struct PositionTweener {
     tweener_state: TweenerState<Vec2>,
 }
@@ -61,8 +69,18 @@ impl PositionTweener {
                 duration,
                 easing,
                 time_elapsed: 0.0,
+                is_playing: false,
             },
         }
+    }
+
+    pub fn tween(&mut self, start: Vec2, end: Vec2, duration: f32, easing: Easing) {
+        self.tweener_state.start = start;
+        self.tweener_state.end = end;
+        self.tweener_state.duration = duration;
+        self.tweener_state.easing = easing;
+        self.tweener_state.time_elapsed = 0.0;
+        self.tweener_state.is_playing = true;
     }
 }
 
@@ -79,6 +97,7 @@ impl ScaleTweener {
                 duration,
                 easing,
                 time_elapsed: 0.0,
+                is_playing: false,
             },
         }
     }
@@ -119,7 +138,9 @@ fn tweener_update(world: &mut World) {
     let delta_time = world.singletons.get::<Time>().unwrap().delta_time;
 
     for (transform2d, position_tweener) in query_mut!(world, Transform2d, PositionTweener) {
-        transform2d.position = position_tweener.tweener_state.tween(delta_time);
+        if (position_tweener.tweener_state.is_playing) {
+            transform2d.position = position_tweener.tweener_state.tween(delta_time);
+        }
     }
 
     for (transform2d, scale_tweener) in query_mut!(world, Transform2d, ScaleTweener) {
@@ -135,7 +156,6 @@ fn tweener_update(world: &mut World) {
 
 impl Plugin for TweenerPlugin {
     fn build(app: &mut crate::app::App) {
-        
         app.world.register_component::<PositionTweener>();
         app.world.register_component::<ScaleTweener>();
         app.world.register_component::<CustomTweener>();

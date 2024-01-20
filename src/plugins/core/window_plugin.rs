@@ -1,7 +1,7 @@
 use glam::Vec2;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{Event, KeyEvent, WindowEvent},
+    event::{Event, KeyEvent, MouseScrollDelta, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -48,6 +48,13 @@ fn runner(mut app: App) {
                 } => {
                     on_curser_moved(&mut app, position.cast::<f32>());
                 }
+                WindowEvent::MouseWheel {
+                    device_id,
+                    delta,
+                    phase,
+                } => {
+                    on_mouse_wheen_input(&mut app, delta)
+                }
                 _ => (),
             },
 
@@ -77,6 +84,14 @@ fn on_curser_moved(app: &mut App, cursor_pos: PhysicalPosition<f32>) {
     let screen_pos = Vec2::new(x_pos, y_pos);
 
     input.on_curser_moved(screen_pos);
+}
+
+fn on_mouse_wheen_input(app: &mut App, mouse_wheel_input: MouseScrollDelta) {
+    let input = app.world.singletons.get_mut::<Input>().unwrap();
+    
+    // Only If I had Enums for inputs to do it
+
+    app.on_mouse_input();
 }
 
 fn on_mouse_input(app: &mut App, mouse_input: MouseButtonInput) {

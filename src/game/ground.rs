@@ -64,12 +64,6 @@ impl Plugin for GroundPlugin {
 
         app.world.insert_entity((tile_map, transform2d, Ground));
 
-        let tile_map = TileMap::new(Vec2::new(64.0, 64.0), road_texture);
-        let mut transform2d = Transform2d::IDENTITY;
-        transform2d.position += Vec2::splat(128.0);
-
-        app.world.insert_entity((tile_map, transform2d, Ground));
-
         app.world.add_listener::<TilesAddedEvent>(on_tiles_added);
     }
 }

@@ -1,4 +1,4 @@
-use glam::Vec2;
+use glam::{vec2, Vec2};
 
 use crate::{
     app::Plugin,
@@ -15,8 +15,9 @@ use crate::{
             asset_storage::{self, AssetStorage},
             camera_plugin::Viewport,
             input_plugin::Input,
-            render_plugin::Gpu,
+            render_plugin::Gpu, timer_plugin::Time,
         },
+        other::tweener::{self, PositionTweener},
         renderer_plugins::{
             sprite_renderer::{self, Sprite, SpriteRendererData},
             texture::{self, Texture},
@@ -54,7 +55,12 @@ impl Plugin for RoadPlacerPlugin {
             74,
         );
 
-        let sprite = Sprite::new(select_sprite, Color::new(1.0, 1.0, 1.0, 1.0), Vec2::new(16.0, 32.0), 0);
+        let sprite = Sprite::new(
+            select_sprite.clone(),
+            Color::new(1.0, 1.0, 1.0, 1.0),
+            Vec2::new(64.0, 74.0),
+            1,
+        );
 
         let mut transform2d = Transform2d::IDENTITY;
 
@@ -62,12 +68,16 @@ impl Plugin for RoadPlacerPlugin {
             current_pos: Hextor::new(0, 0),
         };
 
-        app.world.insert_entity((sprite, transform2d, road_placer));
+        let tweener = PositionTweener::default();
+
+        app.world
+            .insert_entity((sprite, transform2d, road_placer, tweener));
 
         // app.schedular
         //     .add_system(crate::app::SystemStage::Input, on_input);
 
-        app.schedular.add_system(crate::app::SystemStage::Update, on_update);
+        app.schedular
+            .add_system(crate::app::SystemStage::Update, on_update);
     }
 }
 
@@ -76,11 +86,35 @@ fn on_update(world: &mut World) {
     let mouse_pos = input.mouse_position();
     let world_mouse_pos = viewport.screen_to_world(mouse_pos);
 
-    let (transform2d, road_placer) = query_mut!(world, Transform2d, RoadPlacer).next().unwrap();
-    transform2d.position = world_mouse_pos;
-    transform2d.rotation += 0.001;
-    transform2d.scale = mouse_pos * 4.0;
+    let (transform2d, (road_placer, tweener)) =
+        query_mut!(world, Transform2d, RoadPlacer, PositionTweener)
+            .next()
+            .unwrap();
+    // transform2d.position = world_mouse_pos;
 
+    let hex_pos = Hextor::from_vector(world_mouse_pos.x, world_mouse_pos.y, 32.0);
+
+    if (road_placer.current_pos != hex_pos) {
+        road_placer.current_pos = hex_pos;
+
+        let end = hex_pos.to_vector(32.0).into();
+
+        // This will just copy position??? NOOOOO then how I was able to do it??? in the
+        tweener.tween(transform2d.position, end, 0.05, tweener::Easing::Linear);
+    }
+
+    if input.is_mouse_button_pressed(winit::event::MouseButton::Left) {
+        let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
+        if level_manager.can_place_road(&hex_pos) {
+            level_manager.place_road(hex_pos);
+            world.emit(RoadAddedEvent { new_road: hex_pos });
+        } 
+    }
+
+    let time = world.singletons.get::<Time>().unwrap().total_time;
+
+    // transform2d.rotation += 0.001;
+    // transform2d.scale = mouse_pos * 4.0;
 }
 
 fn on_input(world: &mut World) {

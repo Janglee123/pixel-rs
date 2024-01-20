@@ -30,7 +30,7 @@ fn vs_main(
     var out: VertexOutput;
 
     out.color = sprite_data[in.instance_index].color;
-    out.uv = vec2<f32>(in.position.x, in.position.y) * 0.5 + 0.5;
+    out.uv = vec2<f32>(in.position.x, in.position.y) + 0.5;
 
     var proj = projection * sprite_data[in.instance_index].transform;
 
