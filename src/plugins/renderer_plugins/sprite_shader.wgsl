@@ -32,11 +32,12 @@ fn vs_main(
     out.color = sprite_data[in.instance_index].color;
     out.uv = vec2<f32>(in.position.x, in.position.y) + 0.5;
 
-    var proj = projection * sprite_data[in.instance_index].transform;
 
-    out.clip_position = vec4<f32>(proj * in.position, 1.0);
+    var pos = sprite_data[in.instance_index].transform * in.position;
+    pos.z = f32(sprite_data[in.instance_index].z_index) / 1000.0;
+    
+    out.clip_position = vec4<f32>(projection * pos, 1.0);
 
-    out.clip_position.z = f32(sprite_data[in.instance_index].z_index);
     return out;
 }
 

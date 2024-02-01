@@ -7,18 +7,19 @@ use crate::{
     app::Plugin,
     ecs::world::World,
     math::{
-        honeycomb::{Hextor, SpiralLoop},
-        transform2d::{self, Transform2d},
+        color::Color, honeycomb::{Hextor, SpiralLoop}, transform2d::{self, Transform2d}
     },
     plugins::{
-        core::render_plugin::{Gpu, Renderer},
+        asset_types::image::Image,
+        core::{
+            asset_storage::{self, AssetStorage},
+            render_plugin::{Gpu, Renderer},
+        },
         other::tweener::{PositionTweener, ScaleTweener},
         renderer_plugins::{
-            mesh::Mesh,
-            multi_instance_mesh_renderer::{
+            mesh::Mesh, multi_instance_mesh_renderer::{
                 InstanceData, MultiInstanceMesh, MultiInstanceMeshBindGroupLayout,
-            },
-            texture::Texture,
+            }, sprite_renderer::Sprite, texture::Texture
         },
     },
     query_mut, zip,
@@ -31,77 +32,70 @@ pub struct Roads;
 
 impl Plugin for RoadPlugin {
     fn build(app: &mut crate::app::App) {
-        let gpu = app.world.singletons.get::<Gpu>().unwrap();
-
-        // let texture = Texture::from_bytes(gpu, include_bytes!("assets/road.png"), "road texture")
-        //     .ok()
-        //     .unwrap();
-
-        let bind_group_layout = app
+        let (asset_storage, gpu) = app
             .world
             .singletons
-            .get::<MultiInstanceMeshBindGroupLayout>()
+            .get_many_mut::<(AssetStorage, Gpu)>()
             .unwrap();
 
-        // let multi_mesh = MultiInstanceMesh::new(
-        //     gpu,
-        //     &bind_group_layout,
-        //     Arc::new(Mesh::get_quad_mesh()),
-        //     texture,
-        // );
+        let road_texture = asset_storage
+            .get::<Image>(
+                "/mnt/09cbb5c3-3c84-4ea4-b328-254e96041faf/pixel-rs/src/game/assets/road.png",
+            )
+            .unwrap();
 
-        // app.world
-        //     .insert_entity((multi_mesh, Roads, Transform2d::IDENTITY));
+        let data = asset_storage.get_data(&road_texture);
+
+        gpu.create_texture(
+            road_texture.get_id(),
+            "Road Texture",
+            &data.get_data(),
+            64,
+            9,
+        );
+
         app.world.register_component::<Roads>();
         app.world.add_listener::<RoadAddedEvent>(on_road_added);
     }
 }
 
 fn on_road_added(world: &mut World, data: &RoadAddedEvent) {
-    
-    let entity = query_mut!(world, MultiInstanceMesh, Roads).next();
+    let asset_storage = world.singletons.get_mut::<AssetStorage>().unwrap();
+    let road_texture = asset_storage
+        .get("/mnt/09cbb5c3-3c84-4ea4-b328-254e96041faf/pixel-rs/src/game/assets/road.png")
+        .unwrap();
 
-    if let None = entity {
-        return;
-    }
-
-    let (multi_mesh, _) = entity.unwrap();
-
-    let level_manager = world.singletons.get::<LevelManager>().unwrap();
+    // let level_manager = world.singletons.get::<LevelManager>().unwrap();
 
     let center = data.new_road;
 
     let center_pos: Vec2 = center.to_vector(32.0).into();
 
     for neighbor in SpiralLoop::new(center, 1) {
-        if level_manager.is_road(&neighbor) {
+        if world.singletons.get::<LevelManager>().unwrap().is_road(&neighbor) {
             if neighbor == center {
                 continue;
             }
 
             let neighbor_pos: Vec2 = neighbor.to_vector(32.0).into();
 
-            // add tile for center tile
-            // get position
-            // get rotation
             let center_transform = Transform2d::new(
                 center_pos,
                 (neighbor_pos - center_pos).to_angle() as f32,
-                Vec2::new(64.0, 16.0),
+                Vec2::new(1.0, 1.0),
             );
-
-            let center_instance = InstanceData::new(&center_transform, [1.0, 1.0, 1.0]);
 
             let neighbor_transform = Transform2d::new(
                 neighbor_pos,
                 (center_pos - neighbor_pos).to_angle() as f32,
-                Vec2::new(64.0, 16.0),
+                Vec2::new(1.0, 1.0),
             );
 
-            let neighbor_instance = InstanceData::new(&neighbor_transform, [1.0, 1.0, 1.0]);
 
-            multi_mesh.instances.push(center_instance);
-            multi_mesh.instances.push(neighbor_instance);
+            let sprite_a = Sprite::new(road_texture.clone(), Color::WHITE, Vec2::new(64.0,18.0), 100);
+            let sprite_b = Sprite::new(road_texture.clone(), Color::WHITE, Vec2::new(64.0, 18.0), 100);
+            world.insert_entity((center_transform, sprite_a));
+            world.insert_entity((neighbor_transform, sprite_b));
         }
     }
 }

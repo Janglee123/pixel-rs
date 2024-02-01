@@ -27,7 +27,8 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(app: &mut crate::app::App) {
-        // First I need to know that its -1 to 1 or -0.5 to 0.5 I know that center is zero zero
+        let projection = Mat3::IDENTITY;
+        
         app.world.insert_entity((
             Camera {
                 projection: Mat3::IDENTITY,

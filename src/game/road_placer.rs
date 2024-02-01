@@ -63,7 +63,7 @@ impl Plugin for RoadPlacerPlugin {
             select_sprite.clone(),
             Color::new(1.0, 1.0, 1.0, 1.0),
             Vec2::new(64.0, 74.0),
-            1,
+            2,
         );
 
         let mut transform2d = Transform2d::IDENTITY;
@@ -94,7 +94,6 @@ fn on_update(world: &mut World) {
         query_mut!(world, Transform2d, RoadPlacer, PositionTweener)
             .next()
             .unwrap();
-    // transform2d.position = world_mouse_pos;
 
     let hex_pos = Hextor::from_vector(world_mouse_pos.x, world_mouse_pos.y, 32.0);
 
@@ -103,11 +102,11 @@ fn on_update(world: &mut World) {
 
         let end = hex_pos.to_vector(32.0).into();
 
-        // This will just copy position??? NOOOOO then how I was able to do it??? in the
         tweener.tween(transform2d.position, end, 0.05, tweener::Easing::Linear);
     }
 
     if input.is_mouse_button_pressed(MouseButton::Left) {
+        
         let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&hex_pos) {
             level_manager.place_road(hex_pos);
@@ -115,8 +114,7 @@ fn on_update(world: &mut World) {
         }
     }
 
-    let time = world.singletons.get::<Time>().unwrap().total_time;
-
+    
     // transform2d.rotation += 0.001;
     // transform2d.scale = mouse_pos * 4.0;
 }
