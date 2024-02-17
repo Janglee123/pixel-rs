@@ -1,4 +1,5 @@
 extern crate proc_macro;
+use core::arch;
 use hashbrown::HashMap;
 use itertools::izip;
 use std::any::{Any, TypeId};
@@ -18,8 +19,7 @@ pub struct World {
     pub components: Components,
     pub entities: Entities,
     pub archetype_id_map: HashMap<BitSet, Archetype>,
-    // pub singletons: Singletons,
-    // event_bus: EventBus,
+    entity_archetype_map: HashMap<EntityId, BitSet>,
 }
 
 impl World {
@@ -28,8 +28,7 @@ impl World {
             entities: Entities::new(),
             components: Components::new(),
             archetype_id_map: HashMap::new(),
-            // singletons: Singletons::new(),
-            // event_bus: EventBus::new(),
+            entity_archetype_map: HashMap::new(),
         };
 
         result.register_component::<EntityId>();
@@ -79,6 +78,7 @@ impl World {
         // Todo: Using Box<dyn Any> to pass data
         // Not so good idea
         // but it will work for now
+        // one way is to add get_as_any inside component trait
         for (type_id, component) in component_set.get_map() {
             let id = self.components.get_component_id(&type_id).unwrap();
             let type_erased_vec = archetype.columns.get_mut(&id).unwrap();
@@ -94,62 +94,64 @@ impl World {
         let operator = self.components.get_component_vec_operator(&id).unwrap();
         (operator.pusher)(type_erased_vec, Box::new(entity_id.clone()));
 
-        archetype
-            .entity_row_map
-            .insert(entity_id, archetype.len() as u16);
-
         archetype.len += 1;
 
+        self.entity_archetype_map.insert(entity_id, bitset);
         entity_id
     }
 
     pub fn remove_entity(&mut self, entity_id: EntityId) {
-        for (_, archetype) in &mut self.archetype_id_map {
-            if archetype.entity_row_map.contains_key(&entity_id) {
-                // This is the last row before delete
-                let last_row = archetype.len() as u16 - 1;
+        if let Some(id) = self.entity_archetype_map.get(&entity_id) {
+            let archetype = self.archetype_id_map.get_mut(id).unwrap();
 
-                let row = archetype.entity_row_map.remove(&entity_id).unwrap() as usize;
+            // I need to store double map to make this O(1)
+            // As swap_remove is O(1) function but then it changes index
+            // So to update index in map I have to loop
 
-                for (component_id, type_erased_vec) in &mut archetype.columns {
-                    let operator = self
-                        .components
-                        .get_component_vec_operator(&component_id)
-                        .unwrap();
+            let entity_type_id = self
+                .components
+                .get_component_id(&TypeId::of::<EntityId>())
+                .unwrap();
 
-                    (operator.swap_remover)(type_erased_vec, row);
-                }
+            let entity_column = archetype
+                .columns
+                .get(&entity_type_id)
+                .unwrap()
+                .get::<EntityId>();
 
-                // Everything else is O(1) but this loop makes it O(9)
-                // if I had a reverse look up table it would be easy
-                // downside would be I have to maintain two hashmap
-                // or I can make a new struct with it
-                for (key, value) in &archetype.entity_row_map {
-                    if *value == last_row {
-                        archetype.entity_row_map.insert(*key, row as u16);
-                        break;
-                    }
-                }
-                archetype.len -= 1;
+            let row = entity_column.iter().position(|x| *x == entity_id).unwrap();
+
+            for (component_id, type_erased_vec) in &mut archetype.columns {
+                let operator = self
+                    .components
+                    .get_component_vec_operator(&component_id)
+                    .unwrap();
+
+                (operator.swap_remover)(type_erased_vec, row);
             }
-        }
-    }
 
-    fn get_archetype_id(&self, entity_id: &EntityId) -> Option<BitSet> {
-        for (id, archetype) in &self.archetype_id_map {
-            if archetype.entity_row_map.contains_key(entity_id) {
-                return Some(*id); // Todo: Check if I can pass &BitSet
-            }
+            archetype.len -= 1;
         }
-
-        None
     }
 
     pub fn remove_component(&mut self, entity_id: EntityId, target_id: ComponentTypeId) {
         // Todo: use if let Some(id) =
-        let src_id = self.get_archetype_id(&entity_id).unwrap();
+        let src_id = *self.entity_archetype_map.get(&entity_id).unwrap();
+
         let src_archetype = self.archetype_id_map.get_mut(&src_id).unwrap();
-        let row = src_archetype.entity_row_map.remove(&entity_id).unwrap() as usize;
+
+        let entity_type_idd = self
+            .components
+            .get_component_id(&TypeId::of::<EntityId>())
+            .unwrap();
+
+        let entity_column = src_archetype
+            .columns
+            .get(&entity_type_idd)
+            .unwrap()
+            .get::<EntityId>();
+
+        let row = entity_column.iter().position(|x| *x == entity_id).unwrap();
 
         let mut type_ids = src_archetype.get_type_ids();
 
@@ -179,29 +181,9 @@ impl World {
             .get_many_mut([&src_id, &dest_id])
             .unwrap();
 
-        // 5. Update row map of src archetype
-        let mut max_row_entity_id = EntityId::INVALID;
-        let mut max_row = 0;
-
-        for (entity_id, row) in &src_archetype.entity_row_map {
-            if *row >= max_row {
-                max_row = *row;
-                max_row_entity_id = *entity_id;
-            }
-        }
-        src_archetype
-            .entity_row_map
-            .insert(max_row_entity_id, row as u16);
-
-        // 6. Reduce size of src archetype
+        // update stuff
+        self.entity_archetype_map.insert(entity_id, dest_id);
         src_archetype.len -= 1;
-
-        // 7. Update row map of dest archetype
-        dest_archetype
-            .entity_row_map
-            .insert(entity_id, dest_archetype.len as u16);
-
-        // 8. Increase size of dest archetype
         dest_archetype.len += 1;
     }
 

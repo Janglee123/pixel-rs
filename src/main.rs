@@ -51,7 +51,11 @@ struct Bar {
 // }
 
 fn main() {
-    env_logger::init();
+    env_logger::builder()
+    // setting this to None disables the timestamp
+    .format_timestamp(Some(env_logger::TimestampPrecision::Seconds))
+    .init();
+
 
     let mut app = App::new();
 

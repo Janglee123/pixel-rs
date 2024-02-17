@@ -18,6 +18,9 @@
 17. [ ] `Struct wgpu_util::DynamicBuffer`: A wgpu::Buffer which dynamically grows based on the contents.
 18. [ ] Tween improvements
 19. [ ] Input: add just pressed
+20. [ ] Copy tests from bevy-ecs
+21. [ ] Organize project structure
+22. [ ] Fix QUIT
 
 
 ## Game
