@@ -1,8 +1,8 @@
 use winit::dpi::PhysicalSize;
 
 use crate::{
-    ecs::world::{Schedular, World},
-    plugins::core::render_plugin::Renderer,
+    ecs::{world::{Schedular, World}, singletons::Singletons, event_bus::EventBus},
+    plugins::core::render_plugin::Renderer, storage::Storage,
 };
 
 // Order is
@@ -32,17 +32,17 @@ pub trait Plugin {
 }
 
 pub struct App {
-    pub world: World,
-    pub schedular: Schedular<SystemStage, World>,
+    pub storage: Storage,
+    pub schedular: Schedular<SystemStage, Storage>,
     pub renderers: Vec<Box<dyn Renderer>>,
     pub runner: fn(App),
-    pub render_function: fn(&mut World, &Vec<Box<dyn Renderer>>),
+    pub render_function: fn(&mut Storage, &Vec<Box<dyn Renderer>>), // SO I dont know why I had this anymore lol
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
-            world: World::new(),
+            storage: Storage::new(),
             schedular: Schedular::new(),
             runner: |_: App| {},
             render_function: |_, _| {},
@@ -55,28 +55,28 @@ impl App {
     }
 
     pub fn update(&mut self) {
-        self.schedular.run(SystemStage::PreUpdate, &mut self.world);
-        self.schedular.run(SystemStage::Update, &mut self.world);
+        self.schedular.run(SystemStage::PreUpdate, &mut self.storage);
+        self.schedular.run(SystemStage::Update, &mut self.storage);
 
-        self.schedular.run(SystemStage::PreRender, &mut self.world);
+        self.schedular.run(SystemStage::PreRender, &mut self.storage);
         let fun = self.render_function;
-        let world = &mut self.world;
+        let world = &mut self.storage;
 
         (fun)(world, &self.renderers);
     }
 
     pub fn on_resize(&mut self, physical_size: PhysicalSize<u32>) {
-        self.schedular.run(SystemStage::Resize, &mut self.world);
+        self.schedular.run(SystemStage::Resize, &mut self.storage);
     }
 
     pub fn on_keyboard_input(&mut self) {
         // self.schedular.run(SystemStage::PreInput, &mut self.world);
-        self.schedular.run(SystemStage::Input, &mut self.world);
+        self.schedular.run(SystemStage::Input, &mut self.storage);
     }
 
     pub fn on_mouse_input(&mut self) {
         // self.schedular.run(SystemStage::PreInput, &mut self.world);
-        self.schedular.run(SystemStage::Input, &mut self.world);
+        self.schedular.run(SystemStage::Input, &mut self.storage);
     }
 
     pub fn on_curser_moved(&mut self) {
@@ -91,7 +91,7 @@ impl App {
         self.runner = fun;
     }
 
-    pub fn set_renderer(&mut self, fun: fn(&mut World, &Vec<Box<dyn Renderer>>)) {
+    pub fn set_renderer(&mut self, fun: fn(&mut Storage, &Vec<Box<dyn Renderer>>)) {
         self.render_function = fun;
     }
 }

@@ -1,3 +1,7 @@
+use crate::{
+    ecs::singletons::{self, Singletons},
+    storage::Storage,
+};
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec4};
 use hashbrown::HashMap;
@@ -10,7 +14,7 @@ use winit::window::Window;
 
 use crate::{
     app::Plugin,
-    ecs::world::{Component, World},
+    ecs::world::World,
     math::{
         color::Color,
         transform2d::{self, AlignedMatrix, Transform2d},
@@ -23,7 +27,6 @@ use crate::{
             render_plugin::{Gpu, Renderer},
         },
     },
-    query, query_mut, zip,
 };
 
 use super::{
@@ -104,13 +107,11 @@ impl Renderer for SpritePlugin {
         &self,
         render_pass: &mut wgpu::RenderPass<'encoder>,
         world: &'world World,
+        singletons: &'world Singletons,
     ) {
-        let (gpu, camera_data) = world
-            .singletons
-            .get_many::<(Gpu, CameraBindGroup)>()
-            .unwrap();
+        let (gpu, camera_data) = singletons.get_many::<(Gpu, CameraBindGroup)>().unwrap();
 
-        let data = world.singletons.get::<SpriteRendererData>().unwrap();
+        let data = singletons.get::<SpriteRendererData>().unwrap();
 
         render_pass.set_pipeline(&data.render_pipeline);
         render_pass.set_vertex_buffer(0, data.vertex_buffer.slice(..));
@@ -126,11 +127,6 @@ impl Renderer for SpritePlugin {
         render_pass.set_bind_group(2, &camera_data.bind_group, &[]);
 
         for TextureDrawData { range, texture_id } in &data.texture_id_range {
-            // println!(
-            //     "[Draw call] range: {:?} texture_id: {:?} ",
-            //     range, texture_id
-            // );
-
             let texture_group = gpu.texture_bing_group_map.get(texture_id).unwrap();
             render_pass.set_bind_group(1, texture_group, &[]);
 
@@ -141,8 +137,11 @@ impl Renderer for SpritePlugin {
 
 impl Plugin for SpritePlugin {
     fn build(app: &mut crate::app::App) {
+
+        app.storage.world.register_component::<Sprite>();
+
         let (gpu, camera_data) = app
-            .world
+            .storage
             .singletons
             .get_many::<(Gpu, CameraBindGroup)>()
             .unwrap();
@@ -268,16 +267,16 @@ impl Plugin for SpritePlugin {
 
         app.renderers.push(Box::new(SpritePlugin {}));
 
-        app.world.singletons.insert(sprite_renderer_data);
+        app.storage.singletons.insert(sprite_renderer_data);
 
-        app.world.register_component::<Sprite>();
+        app.storage.world.register_component::<Sprite>();
 
         app.schedular
             .add_system(crate::app::SystemStage::PreRender, update_cache)
     }
 }
 
-pub fn update_cache(world: &mut World) {
+pub fn update_cache(world: &mut Storage) {
     let data = world.singletons.get_mut::<SpriteRendererData>().unwrap();
 
     // Danger used std::mem::take
@@ -290,7 +289,7 @@ pub fn update_cache(world: &mut World) {
     }
 
     // Todo: Culling
-    for (transform2d, sprite) in query!(world, Transform2d, Sprite) {
+    for (transform2d, sprite) in world.world.query::<(Transform2d, Sprite)>() {
         // Hmm So sprite has reference to texture
         let texture_id = sprite.image.get_id();
 

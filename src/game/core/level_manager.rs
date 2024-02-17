@@ -1,7 +1,7 @@
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    ecs::world::WorldEventData,
+    ecs::event_bus::WorldEvent,
     game::{
         resources::{
             building_descriptor::BuildingDescriptor,
@@ -10,7 +10,7 @@ use crate::{
         },
         road,
     },
-    math::honeycomb::{self, Hextor},
+    math::honeycomb::{self, Hextor, SpiralLoop},
 };
 
 pub struct InventoryManager {
@@ -189,13 +189,18 @@ impl Ground {
 }
 
 pub struct TilesAddedEvent;
-impl WorldEventData for TilesAddedEvent {}
+impl WorldEvent for TilesAddedEvent {}
 
 pub struct RoadAddedEvent {
     pub new_road: Hextor,
 }
 
-impl WorldEventData for RoadAddedEvent {}
+pub struct RoadRemovedEvent {
+    pub road: Hextor,
+}
+
+impl WorldEvent for RoadAddedEvent {}
+impl WorldEvent for RoadRemovedEvent {}
 
 #[derive(Clone)]
 pub struct Action {
@@ -434,6 +439,10 @@ impl LevelManager {
             tiles_added: false,
             new_score: 0,
         }
+    }
+
+    pub fn remove_road(&mut self, tile: Hextor) {
+        self.roads.remove_road(tile);
     }
 
     pub fn get_tiles(&self) -> &HashSet<Hextor> {

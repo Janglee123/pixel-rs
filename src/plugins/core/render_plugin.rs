@@ -1,7 +1,12 @@
+use crate::{
+    ecs::singletons::{self, Singletons},
+    storage::Storage,
+};
 use std::{num::NonZeroU32, rc::Rc, string, sync::Arc};
 
 use bytemuck::{Pod, Zeroable};
 use hashbrown::HashMap;
+use log::info;
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -21,6 +26,7 @@ pub trait Renderer {
         &self,
         render_pass: &mut RenderPass<'encoder>,
         world: &'world World,
+        singletons: &'world Singletons,
     );
 }
 
@@ -154,8 +160,8 @@ impl Gpu {
     }
 }
 
-pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
-    let gpu = world.singletons.get::<Gpu>().unwrap();
+pub fn render_function(storage: &mut Storage, renderers: &Vec<Box<dyn Renderer>>) {
+    let gpu = storage.singletons.get::<Gpu>().unwrap();
 
     let output = gpu.surface.get_current_texture().unwrap();
 
@@ -191,14 +197,14 @@ pub fn render_function(world: &mut World, renderers: &Vec<Box<dyn Renderer>>) {
 
     // dynamic dispatch lol
     for renderer in renderers.iter() {
-        renderer.render(&mut render_pass, world);
+        renderer.render(&mut render_pass, &storage.world, &storage.singletons);
     }
 
     drop(render_pass);
 
     // I need to get gpu again because borrow checker doesn't allow me to use above gpu again
     // How is the turn table borrow checker
-    let gpu = world.singletons.get::<Gpu>().unwrap();
+    let gpu = storage.singletons.get::<Gpu>().unwrap();
     gpu.queue.submit(std::iter::once(encoder.finish()));
 
     output.present();
@@ -208,7 +214,7 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(app: &mut App) {
-        let window = app.world.singletons.get::<Window>().unwrap();
+        let window = app.storage.singletons.get::<Window>().unwrap();
 
         let instance_descriptor = wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -236,12 +242,12 @@ impl Plugin for RenderPlugin {
         };
 
         for adapter in instance.enumerate_adapters(wgpu::Backends::VULKAN) {
-            println!("{:?}", adapter.get_info());
+            info!("{:?}", adapter.get_info());
         }
 
         let adapter = pollster::block_on(instance.request_adapter(&adapter_options)).unwrap();
 
-        println!("Selected adapter {:?}", adapter.get_info());
+        info!("Selected adapter {:?}", adapter.get_info());
 
         let device_descriptor = DeviceDescriptor {
             label: None,
@@ -357,14 +363,14 @@ impl Plugin for RenderPlugin {
         };
 
         app.set_renderer(render_function);
-        app.world.singletons.insert(gpu);
+        app.storage.singletons.insert(gpu);
         app.schedular
             .add_system(crate::app::SystemStage::Resize, on_resize)
         // app.schedular.add_system(1, draw);
     }
 }
 
-fn on_resize(world: &mut World) {
+fn on_resize(world: &mut Storage) {
     let window = world.singletons.get::<Window>().unwrap();
     let size = window.inner_size();
 

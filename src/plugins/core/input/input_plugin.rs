@@ -121,6 +121,6 @@ pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(app: &mut crate::app::App) {
         let input = Input::default();
-        app.world.singletons.insert(input);
+        app.storage.singletons.insert(input);
     }
 }

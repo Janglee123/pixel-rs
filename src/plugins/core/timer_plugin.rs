@@ -1,3 +1,4 @@
+use crate::storage::Storage;
 use std::time::Instant;
 
 use crate::{app::Plugin, ecs::world::World};
@@ -21,13 +22,13 @@ impl Plugin for TimerPlugin {
             last_frame_instant: Instant::now(),
         };
 
-        app.world.singletons.insert(time);
+        app.storage.singletons.insert(time);
         app.schedular
             .add_system(crate::app::SystemStage::PreUpdate, update_timer);
     }
 }
 
-fn update_timer(world: &mut World) {
+fn update_timer(world: &mut Storage) {
     let time = world.singletons.get_mut::<Time>().unwrap();
 
     time.delta_time = time.last_frame_instant.elapsed().as_secs_f32();

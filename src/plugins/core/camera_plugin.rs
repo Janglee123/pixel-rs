@@ -6,9 +6,12 @@ use winit::window::Window;
 
 use crate::{
     app::{Plugin, SystemStage},
-    ecs::world::{self, World},
+    ecs::{
+        singletons::{self, Singletons},
+        world::{self, World},
+    },
     math::transform2d::{AlignedMatrix, Transform2d},
-    query, query_mut, zip,
+    storage::{self, Storage},
 };
 
 use super::render_plugin::{Gpu, Renderer};
@@ -28,15 +31,19 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(app: &mut crate::app::App) {
         let projection = Mat3::IDENTITY;
+
+        app.storage.world.register_component::<Camera>();
+        app.storage.world.register_component::<Transform2d>(); //Todo: Think about this, transform should part of core
         
-        app.world.insert_entity((
+
+        app.storage.world.insert_entity((
             Camera {
                 projection: Mat3::IDENTITY,
             },
             Transform2d::IDENTITY,
         ));
 
-        let gpu = app.world.singletons.get::<Gpu>().unwrap();
+        let gpu = app.storage.singletons.get::<Gpu>().unwrap();
 
         let camera_bind_group_layout =
             gpu.device
@@ -77,8 +84,8 @@ impl Plugin for CameraPlugin {
             buffer: camera_buffer,
         };
 
-        app.world.singletons.insert(Viewport::default());
-        app.world.singletons.insert(data);
+        app.storage.singletons.insert(Viewport::default());
+        app.storage.singletons.insert(data);
         app.schedular.add_system(SystemStage::Resize, on_resize);
         app.schedular.add_system(SystemStage::PreRender, on_update);
         app.renderers.push(Box::new(CameraPlugin));
@@ -90,9 +97,9 @@ impl Renderer for CameraPlugin {
         &self,
         render_pass: &mut wgpu::RenderPass<'encoder>,
         world: &'world World,
+        singletons: &'world Singletons,
     ) {
-        let (gpu, data, viewport) = world
-            .singletons
+        let (gpu, data, viewport) = singletons
             .get_many::<(Gpu, CameraBindGroup, Viewport)>()
             .unwrap();
 
@@ -104,10 +111,10 @@ impl Renderer for CameraPlugin {
     }
 }
 
-pub fn on_resize(world: &mut World) {
+pub fn on_resize(world: &mut Storage) {
     let size = world.singletons.get::<Window>().unwrap().inner_size();
 
-    let camera = query_mut!(world, Camera).next().unwrap();
+    let (camera,) = world.world.query_mut_single::<(Camera,)>();
 
     camera.projection.x_axis.x = 2.0 / size.width as f32;
     camera.projection.y_axis.y = 2.0 / size.height as f32;
@@ -147,13 +154,14 @@ impl Viewport {
     }
 }
 
-pub fn on_update(world: &mut World) {
-    let size = world.singletons.get::<Window>().unwrap().inner_size();
+pub fn on_update(storage: &mut Storage) {
+    let size = storage.singletons.get::<Window>().unwrap().inner_size();
 
-    let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
+    let (camera, transform2d) = storage.world.query_single::<(Camera, Transform2d)>();
+
     let projection = camera.projection * transform2d.create_matrix();
 
-    let viewport = world.singletons.get_mut::<Viewport>().unwrap();
+    let viewport = storage.singletons.get_mut::<Viewport>().unwrap();
     viewport.inv_projection_view_mat = projection.inverse();
     viewport.projection_view_mat = projection; // but this is camera projection I want world projection hmm
 }

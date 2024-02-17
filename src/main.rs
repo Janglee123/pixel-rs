@@ -14,13 +14,14 @@ use game::GamePlugin;
 use hashbrown::HashMap;
 
 use app::App;
-use ecs::world::{self, *};
+use ecs::{world::{self, *}, entity::EntityId};
 use plugins::{
     core::{camera_plugin::CameraPlugin, CorePlugins},
     other::tweener::TweenerPlugin,
     renderer_plugins::Renderer2dPlugin,
 };
 use winit::event::MouseButton;
+use zerocopy::{AsBytes, FromBytes};
 
 use crate::plugins::core::asset_storage::AssetStorage;
 
@@ -29,22 +30,25 @@ mod ecs;
 mod game;
 mod math;
 mod plugins;
+mod storage;
+
+use std::path::Iter;
 
 #[derive(Debug)]
 struct Foo {
     foo: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Bar {
     bar: u8,
 }
 
-fn system(world: &mut World) {
-    for bar in query_mut!(world, Bar) {
-        println!("{}", bar.bar);
-    }
-}
+// fn system(storage: &mut Storage) {
+//     for bar in query_mut!(world, Bar) {
+//         println!("{}", bar.bar);
+//     }
+// }
 
 fn main() {
     env_logger::init();

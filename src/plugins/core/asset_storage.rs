@@ -141,6 +141,6 @@ pub struct AssetStoragePlugin;
 
 impl Plugin for AssetStoragePlugin {
     fn build(app: &mut crate::app::App) {
-        app.world.singletons.insert(AssetStorage::new());
+        app.storage.singletons.insert(AssetStorage::new());
     }
 }

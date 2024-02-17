@@ -1,4 +1,8 @@
 use crate::{
+    ecs::{
+        singletons::{self, Singletons},
+        world::World,
+    },
     math::{
         honeycomb::HEXAGON_INDICES,
         transform2d::{self, Transform2d},
@@ -17,13 +21,7 @@ use std::{
 };
 use wgpu::{include_wgsl, util::DeviceExt, BindGroupLayout, RenderPass, RenderPipeline};
 
-use crate::{
-    app::Plugin,
-    ecs::world::{Component, World},
-    math::color::Color,
-    plugins::core::render_plugin::Gpu,
-    query, query_mut, zip,
-};
+use crate::{app::Plugin, plugins::core::render_plugin::Gpu};
 
 use super::{mesh::Mesh, texture::Texture, vertex::Vertex};
 
@@ -157,14 +155,13 @@ impl Renderer for MultiInstanceMeshRenderer {
         &self,
         render_pass: &mut RenderPass<'encoder>,
         world: &'world World,
+        singletons: &'world Singletons,
     ) {
-        let data = world
-            .singletons
-            .get::<MultiInstanceMeshRendererData>()
-            .unwrap();
-        let gpu = world.singletons.get::<Gpu>().unwrap();
+        
+        let data = singletons.get::<MultiInstanceMeshRendererData>().unwrap();
+        let gpu = singletons.get::<Gpu>().unwrap();
 
-        let (camera, transform2d) = query!(world, Camera, Transform2d).next().unwrap();
+        let (camera, transform2d) = world.query_single::<(Camera, Transform2d)>();
         let projection = transform2d.create_matrix() * camera.projection;
 
         render_pass.set_pipeline(&data.render_pipeline);
@@ -173,7 +170,8 @@ impl Renderer for MultiInstanceMeshRenderer {
             .write_buffer(&data.camera_buffer, 0, bytemuck::cast_slice(&[projection]));
         render_pass.set_bind_group(1, &data.camera_bind_group, &[]);
 
-        for (multi_instance_mesh, transform2d) in query!(world, MultiInstanceMesh, Transform2d) {
+        for (multi_instance_mesh, transform2d) in world.query::<(MultiInstanceMesh, Transform2d)>()
+        {
             render_pass.set_vertex_buffer(0, multi_instance_mesh.vertex_buffer.slice(..));
             render_pass.set_index_buffer(
                 multi_instance_mesh.index_buffer.slice(..),
@@ -209,7 +207,7 @@ pub struct MultiInstanceMeshBindGroupLayout {
 
 impl Plugin for MultiInstanceMeshRenderer {
     fn build(app: &mut crate::app::App) {
-        let gpu = app.world.singletons.get::<Gpu>().unwrap();
+        let gpu = app.storage.singletons.get::<Gpu>().unwrap();
         let shader = gpu
             .device
             .create_shader_module(include_wgsl!("multi_instance_mesh.wgsl"));
@@ -350,11 +348,11 @@ impl Plugin for MultiInstanceMeshRenderer {
 
         let tile_map_bind_group_layout = MultiInstanceMeshBindGroupLayout { bind_group_layout };
 
-        app.world.register_component::<MultiInstanceMesh>();
-        app.world.singletons.insert(tile_map_bind_group_layout);
+        app.storage.world.register_component::<MultiInstanceMesh>();
+        app.storage.singletons.insert(tile_map_bind_group_layout);
 
         app.renderers.push(Box::new(MultiInstanceMeshRenderer {}));
 
-        app.world.singletons.insert(tile_map_data);
+        app.storage.singletons.insert(tile_map_data);
     }
 }

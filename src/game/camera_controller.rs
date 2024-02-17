@@ -1,3 +1,4 @@
+use crate::storage::Storage;
 use glam::{vec2, vec3, Vec2, Vec3};
 
 use crate::{
@@ -7,7 +8,7 @@ use crate::{
         camera_plugin::{Camera, Viewport},
         input::input_plugin::{Input, MouseButton},
     },
-    query_mut, zip, World,
+    World,
 };
 
 pub struct CameraControllerPlugin;
@@ -26,11 +27,11 @@ impl Plugin for CameraControllerPlugin {
         app.schedular
             .add_system(crate::app::SystemStage::Update, on_update);
 
-        app.world.singletons.insert(CameraController::default());
+        app.storage.singletons.insert(CameraController::default());
     }
 }
 
-fn on_update(world: &mut World) {
+fn on_update(world: &mut Storage) {
     let (input, viewport, camera_controller) = world
         .singletons
         .get_many_mut::<(Input, Viewport, CameraController)>()
@@ -48,18 +49,13 @@ fn on_update(world: &mut World) {
         camera_controller.is_right_click_pressed = is_right_pressed;
     }
 
-    if is_right_pressed {
-        let delta =
-            (current_position - camera_controller.move_start_offset) * viewport.get_size() * 0.5;
-        camera_controller.move_start_offset = current_position;
+    // if is_right_pressed {
+    //     let delta =
+    //         (current_position - camera_controller.move_start_offset) * viewport.get_size() * 0.5;
+    //     camera_controller.move_start_offset = current_position;
 
-        println!(
-            "c {} s {} d {}",
-            current_position, camera_controller.move_start_offset, delta
-        );
+    //     let (transform2d, _) = world.world.query_mut::<(Transform2d, Camera)>().next().unwrap();
 
-        let (transform2d, _) = query_mut!(world, Transform2d, Camera).next().unwrap();
-
-        transform2d.position += delta;
-    }
+    //     transform2d.position += delta;
+    // }
 }

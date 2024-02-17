@@ -28,7 +28,7 @@ impl Plugin for Renderer2dPlugin {
         app.register_plugin::<SpritePlugin>();
         app.register_plugin::<MultiInstanceMeshRenderer>();
 
-        let asset_storage = app.world.singletons.get_mut::<AssetStorage>().unwrap();
+        let asset_storage = app.storage.singletons.get_mut::<AssetStorage>().unwrap();
         asset_storage.insert(Mesh::get_hex_mesh(), "hex_mesh");
         asset_storage.insert(Mesh::get_quad_mesh(), "quad_mesh");
     }

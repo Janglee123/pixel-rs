@@ -1,3 +1,4 @@
+use crate::storage::Storage;
 use std::default;
 
 use glam::Vec2;
@@ -7,7 +8,6 @@ use crate::{
     ecs::world::World,
     math::transform2d::{self, Transform2d},
     plugins::core::timer_plugin::Time,
-    query_mut, zip,
 };
 
 pub struct TweenerPlugin;
@@ -134,20 +134,20 @@ impl Interpolate for Vec2 {
     }
 }
 
-fn tweener_update(world: &mut World) {
+fn tweener_update(world: &mut Storage) {
     let delta_time = world.singletons.get::<Time>().unwrap().delta_time;
 
-    for (transform2d, position_tweener) in query_mut!(world, Transform2d, PositionTweener) {
+    for (transform2d, position_tweener) in world.world.query_mut::<(Transform2d, PositionTweener)>() {
         if (position_tweener.tweener_state.is_playing) {
             transform2d.position = position_tweener.tweener_state.tween(delta_time);
         }
     }
 
-    for (transform2d, scale_tweener) in query_mut!(world, Transform2d, ScaleTweener) {
+    for (transform2d, scale_tweener) in world.world.query_mut::<(Transform2d, ScaleTweener)>() {
         transform2d.scale = scale_tweener.tweener_state.tween(delta_time);
     }
 
-    for custom_tweener in query_mut!(world, CustomTweener) {
+    for (custom_tweener,) in world.world.query_mut::<(CustomTweener,)>() {
         let eased_time = custom_tweener.tweener_state.tween(delta_time);
 
         (custom_tweener.callback)(eased_time);
@@ -156,9 +156,9 @@ fn tweener_update(world: &mut World) {
 
 impl Plugin for TweenerPlugin {
     fn build(app: &mut crate::app::App) {
-        app.world.register_component::<PositionTweener>();
-        app.world.register_component::<ScaleTweener>();
-        app.world.register_component::<CustomTweener>();
+        app.storage.world.register_component::<PositionTweener>();
+        app.storage.world.register_component::<ScaleTweener>();
+        app.storage.world.register_component::<CustomTweener>();
 
         app.schedular
             .add_system(crate::app::SystemStage::Update, tweener_update)

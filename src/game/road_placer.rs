@@ -1,3 +1,5 @@
+use crate::storage::Storage;
+
 use glam::{vec2, Vec2};
 
 use crate::{
@@ -27,8 +29,9 @@ use crate::{
             texture::{self, Texture},
         },
     },
-    query_mut, zip,
 };
+
+use super::core::level_manager::RoadRemovedEvent;
 
 pub struct RoadPlacer {
     current_pos: Hextor,
@@ -38,8 +41,10 @@ pub struct RoadPlacerPlugin;
 
 impl Plugin for RoadPlacerPlugin {
     fn build(app: &mut crate::app::App) {
+        app.storage.world.register_component::<RoadPlacer>();
+
         let (asset_storage, gpu) = app
-            .world
+            .storage
             .singletons
             .get_many_mut::<(AssetStorage, Gpu)>()
             .unwrap();
@@ -74,26 +79,27 @@ impl Plugin for RoadPlacerPlugin {
 
         let tweener = PositionTweener::default();
 
-        app.world
+        app.storage
+            .world
             .insert_entity((sprite, transform2d, road_placer, tweener));
 
-        // app.schedular
-        //     .add_system(crate::app::SystemStage::Input, on_input);
+        app.schedular
+            .add_system(crate::app::SystemStage::Input, on_input);
 
         app.schedular
             .add_system(crate::app::SystemStage::Update, on_update);
     }
 }
 
-fn on_update(world: &mut World) {
-    let (input, viewport) = world.singletons.get_many::<(Input, Viewport)>().unwrap();
+fn on_update(storage: &mut Storage) {
+    let (input, viewport) = storage.singletons.get_many::<(Input, Viewport)>().unwrap();
     let mouse_pos = input.mouse_position();
     let world_mouse_pos = viewport.screen_to_world(mouse_pos);
 
-    let (transform2d, (road_placer, tweener)) =
-        query_mut!(world, Transform2d, RoadPlacer, PositionTweener)
-            .next()
-            .unwrap();
+    let (transform2d, road_placer, tweener) =
+        storage
+            .world
+            .query_mut_single::<(Transform2d, RoadPlacer, PositionTweener)>();
 
     let hex_pos = Hextor::from_vector(world_mouse_pos.x, world_mouse_pos.y, 32.0);
 
@@ -105,24 +111,28 @@ fn on_update(world: &mut World) {
         tweener.tween(transform2d.position, end, 0.05, tweener::Easing::Linear);
     }
 
+    let (input, viewport) = storage.singletons.get_many::<(Input, Viewport)>().unwrap();
     if input.is_mouse_button_pressed(MouseButton::Left) {
-        
-        let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
+        let level_manager: &mut LevelManager = storage.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&hex_pos) {
             level_manager.place_road(hex_pos);
-            world.emit(RoadAddedEvent { new_road: hex_pos });
+            storage.emit(RoadAddedEvent { new_road: hex_pos });
+        }
+    } else if input.is_mouse_button_pressed(MouseButton::Right) {
+        let level_manager: &mut LevelManager = storage.singletons.get_mut().unwrap();
+        if level_manager.is_road(&hex_pos) {
+            level_manager.remove_road(hex_pos);
+            storage.emit(RoadRemovedEvent { road: hex_pos });
         }
     }
-
-    
-    // transform2d.rotation += 0.001;
-    // transform2d.scale = mouse_pos * 4.0;
 }
 
-fn on_input(world: &mut World) {
-    let (transform2d, road_placer) = query_mut!(world, Transform2d, RoadPlacer).next().unwrap();
+fn on_input(storage: &mut Storage) {
+    let (transform2d, road_placer) = storage
+        .world
+        .query_mut_single::<(Transform2d, RoadPlacer)>();
 
-    let input = world.singletons.get::<Input>().unwrap();
+    let input = storage.singletons.get::<Input>().unwrap();
 
     if input.is_key_pressed(KeyCode::KeyW) {
         road_placer.current_pos.r += 1;
@@ -140,16 +150,13 @@ fn on_input(world: &mut World) {
         road_placer.current_pos.q += 1;
     }
 
-    // transform2d.position = road_placer.current_pos.to_vector(32.0).into();
-    // println!("new position: {:?}", transform2d.position);
-
     let tile = road_placer.current_pos;
 
     if input.is_key_pressed(KeyCode::Space) {
-        let level_manager: &mut LevelManager = world.singletons.get_mut().unwrap();
+        let level_manager: &mut LevelManager = storage.singletons.get_mut().unwrap();
         if level_manager.can_place_road(&tile) {
             level_manager.place_road(tile);
-            world.emit(RoadAddedEvent { new_road: tile });
+            storage.emit(RoadAddedEvent { new_road: tile });
         }
     }
 }

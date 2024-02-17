@@ -21,8 +21,7 @@ use crate::{
             tilemap_renderer::{TileData, TileMap},
             // tilemap_renderer::{TileData, TileMap, TileMapBindGroupLayout},
         },
-    },
-    query_mut, zip,
+    }, storage::Storage,
 };
 
 use super::core::level_manager::LevelManager;
@@ -33,7 +32,7 @@ pub struct Ground;
 impl Plugin for GroundPlugin {
     fn build(app: &mut crate::app::App) {
         let (asset_storage, gpu) = app
-            .world
+            .storage
             .singletons
             .get_many_mut::<(AssetStorage, Gpu)>()
             .unwrap();
@@ -60,20 +59,20 @@ impl Plugin for GroundPlugin {
         let tile_map = TileMap::new(Vec2::new(64.0, 64.0), grass_texture);
         let transform2d = Transform2d::IDENTITY;
 
-        app.world.register_component::<Ground>();
+        app.storage.world.register_component::<Ground>();
 
-        app.world.insert_entity((tile_map, transform2d, Ground));
+        app.storage.world.insert_entity((tile_map, transform2d, Ground));
 
-        app.world.add_listener::<TilesAddedEvent>(on_tiles_added);
+        app.storage.add_listener::<TilesAddedEvent>(on_tiles_added);
     }
 }
 
-pub fn on_tiles_added(world: &mut World, _: &TilesAddedEvent) {
-    println!("TILES ADDED EVENT RECEIVED");
+pub fn on_tiles_added(storage: &mut Storage, _: &TilesAddedEvent) {
 
-    let level_manager = world.singletons.get::<LevelManager>().unwrap();
+    for (tile_map, _) in storage.world.query_mut::<(TileMap, Ground)>() {
 
-    for (tile_map, _) in query_mut!(world, TileMap, Ground) {
+        let level_manager = storage.singletons.get::<LevelManager>().unwrap();
+
         tile_map.tiles.clear();
 
         for hexter in level_manager.get_tiles() {
@@ -83,7 +82,5 @@ pub fn on_tiles_added(world: &mut World, _: &TilesAddedEvent) {
 
             tile_map.tiles.push(tile_data);
         }
-
-        println!("tiles count: {}", tile_map.tiles.len());
     }
 }

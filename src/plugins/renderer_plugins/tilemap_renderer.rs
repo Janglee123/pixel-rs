@@ -1,3 +1,5 @@
+use crate::ecs::singletons::{self, Singletons};
+use crate::storage::Storage;
 use crate::{
     math::{
         honeycomb::HEXAGON_INDICES,
@@ -29,11 +31,7 @@ use wgpu::{
 };
 
 use crate::{
-    app::Plugin,
-    ecs::world::{Component, World},
-    math::color::Color,
-    plugins::core::render_plugin::Gpu,
-    query, query_mut, zip,
+    app::Plugin, ecs::world::World, math::color::Color, plugins::core::render_plugin::Gpu,
 };
 
 use super::{mesh::Mesh, texture::Texture, vertex::Vertex};
@@ -114,10 +112,11 @@ impl Renderer for TileMapRenderer {
         &self,
         render_pass: &mut RenderPass<'encoder>,
         world: &'world World,
+        singletons: &'world Singletons,
     ) {
-        let data = world.singletons.get::<TileMapRendererData>().unwrap();
-        let gpu = world.singletons.get::<Gpu>().unwrap();
-        let camera_data = world.singletons.get::<CameraBindGroup>().unwrap();
+        let data = singletons.get::<TileMapRendererData>().unwrap();
+        let gpu = singletons.get::<Gpu>().unwrap();
+        let camera_data = singletons.get::<CameraBindGroup>().unwrap();
 
         render_pass.set_pipeline(&data.render_pipeline);
 
@@ -145,7 +144,7 @@ impl Renderer for TileMapRenderer {
 impl Plugin for TileMapRenderer {
     fn build(app: &mut crate::app::App) {
         let (gpu, camera_bind_group) = app
-            .world
+            .storage
             .singletons
             .get_many::<(Gpu, CameraBindGroup)>()
             .unwrap();
@@ -275,11 +274,11 @@ impl Plugin for TileMapRenderer {
             index_buffer,
         };
 
-        app.world.register_component::<TileMap>();
+        app.storage.world.register_component::<TileMap>();
 
         app.renderers.push(Box::new(TileMapRenderer {}));
 
-        app.world.singletons.insert(tile_map_data);
+        app.storage.singletons.insert(tile_map_data);
         app.schedular
             .add_system(crate::app::SystemStage::PreRender, prepare_tilemap_data);
     }
@@ -291,7 +290,7 @@ struct TileMapData {
     offset: u32,
 }
 
-fn prepare_tilemap_data(world: &mut World) {
+fn prepare_tilemap_data(storage: &mut Storage) {
     let mut offset = 0u32;
 
     let mut offset_list = vec![];
@@ -299,7 +298,7 @@ fn prepare_tilemap_data(world: &mut World) {
 
     // Note: This is coping data of Vec<TileData> into another vec and that might be expensive thing to do
     // for every tilemap every frame.
-    for (tile_map, transform2d) in query!(world, TileMap, Transform2d) {
+    for (tile_map, transform2d) in storage.world.query::<(TileMap, Transform2d)>() {
         offset_list.push(offset);
 
         data_list.push(TileMapData {
@@ -322,7 +321,7 @@ fn prepare_tilemap_data(world: &mut World) {
         let data = [matrix_data, tile_size_data, tile_data].concat();
 
         // I should write this buffer into
-        let (gpu, render_data) = world
+        let (gpu, render_data) = storage
             .singletons
             .get_many::<(Gpu, TileMapRendererData)>()
             .unwrap();
@@ -335,7 +334,7 @@ fn prepare_tilemap_data(world: &mut World) {
         offset += gpu.get_aligned_storage_buffer_size(size);
     }
 
-    let render_data = world.singletons.get_mut::<TileMapRendererData>().unwrap();
+    let render_data = storage.singletons.get_mut::<TileMapRendererData>().unwrap();
     render_data.buffer_offset_list = offset_list;
     render_data.data_list = data_list;
 }

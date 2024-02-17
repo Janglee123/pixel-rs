@@ -1,4 +1,5 @@
 use glam::Vec2;
+use log::info;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent},
@@ -17,8 +18,8 @@ use crate::{
 pub struct WindowPlugin;
 
 fn runner(mut app: App) {
-    let event_loop = app.world.singletons.remove::<EventLoop<()>>().unwrap();
-    let w_id = app.world.singletons.get::<Window>().unwrap().id();
+    let event_loop = app.storage.singletons.remove::<EventLoop<()>>().unwrap();
+    let w_id = app.storage.singletons.get::<Window>().unwrap().id();
 
     event_loop.run(move |event, window_target| {
         // *r_control_flow = ControlFlow::Poll;
@@ -26,7 +27,7 @@ fn runner(mut app: App) {
         match event {
             Event::WindowEvent { window_id, event } if window_id == w_id => match event {
                 WindowEvent::CloseRequested => {
-                    println!("bye bye");
+                    info!("bye bye");
                     window_target.exit();
                 }
 
@@ -62,7 +63,7 @@ fn runner(mut app: App) {
 
             Event::AboutToWait => {
                 app.update();
-                let window = app.world.singletons.get::<Window>().unwrap();
+                let window = app.storage.singletons.get::<Window>().unwrap();
                 window.request_redraw();
             }
             _ => (),
@@ -72,7 +73,7 @@ fn runner(mut app: App) {
 
 fn on_curser_moved(app: &mut App, cursor_pos: PhysicalPosition<f32>) {
     let (input, window) = app
-        .world
+        .storage
         .singletons
         .get_many_mut::<(Input, Window)>()
         .unwrap();
@@ -89,7 +90,7 @@ fn on_curser_moved(app: &mut App, cursor_pos: PhysicalPosition<f32>) {
 }
 
 fn on_mouse_wheen_input(app: &mut App, mouse_wheel_input: MouseScrollDelta) {
-    let input = app.world.singletons.get_mut::<Input>().unwrap();
+    let input = app.storage.singletons.get_mut::<Input>().unwrap();
 
     // Only If I had Enums for inputs to do it
 
@@ -99,7 +100,7 @@ fn on_mouse_wheen_input(app: &mut App, mouse_wheel_input: MouseScrollDelta) {
 fn on_mouse_input(app: &mut App, button: MouseButton, state: ElementState) {
     // Why accessing input here??
 
-    let input = app.world.singletons.get_mut::<Input>().unwrap();
+    let input = app.storage.singletons.get_mut::<Input>().unwrap();
 
     let mouse_button_event = MouseButtonEvent {
         button: convert_winit_mouse_button(button),
@@ -111,7 +112,7 @@ fn on_mouse_input(app: &mut App, button: MouseButton, state: ElementState) {
 }
 
 fn on_keyboard_input(app: &mut App, key_input: KeyEvent) {
-    let input = app.world.singletons.get_mut::<Input>().unwrap();
+    let input = app.storage.singletons.get_mut::<Input>().unwrap();
 
     if let winit::keyboard::PhysicalKey::Code(key_code) = key_input.physical_key {
         let key_event = input::input_plugin::KeyEvent {
@@ -129,8 +130,8 @@ impl Plugin for WindowPlugin {
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        app.world.singletons.insert(window);
-        app.world.singletons.insert(event_loop);
+        app.storage.singletons.insert(window);
+        app.storage.singletons.insert(event_loop);
 
         app.set_runner(runner);
     }

@@ -26,18 +26,18 @@ impl Plugin for GamePlugin {
 
         let level_descriptor = get_dummy_level();
         let level_manager = LevelManager::new(&level_descriptor);
-        app.world.singletons.insert(level_manager);
+        app.storage.singletons.insert(level_manager);
 
-        app.world.emit(TilesAddedEvent);
+        app.storage.emit(TilesAddedEvent);
 
-        app.world.emit(RoadAddedEvent {
+        app.storage.emit(RoadAddedEvent {
             new_road: Hextor::new(0, 0),
         });
 
-        let level_manager = app.world.singletons.get_mut::<LevelManager>().unwrap();
+        let level_manager = app.storage.singletons.get_mut::<LevelManager>().unwrap();
         level_manager.place_road(Hextor::new(1, 0));
 
-        app.world.emit(RoadAddedEvent {
+        app.storage.emit(RoadAddedEvent {
             new_road: Hextor::new(1, 0),
         })
     }
