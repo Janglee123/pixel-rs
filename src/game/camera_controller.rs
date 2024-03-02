@@ -49,13 +49,13 @@ fn on_update(world: &mut Storage) {
         camera_controller.is_right_click_pressed = is_right_pressed;
     }
 
-    // if is_right_pressed {
-    //     let delta =
-    //         (current_position - camera_controller.move_start_offset) * viewport.get_size() * 0.5;
-    //     camera_controller.move_start_offset = current_position;
+    if is_right_pressed {
+        let delta =
+            (current_position - camera_controller.move_start_offset) * viewport.get_size() * 0.5;
+        camera_controller.move_start_offset = current_position;
 
-    //     let (transform2d, _) = world.world.query_mut::<(Transform2d, Camera)>().next().unwrap();
+        let (transform2d, _) = world.world.query_mut::<(Transform2d, Camera)>().next().unwrap();
 
-    //     transform2d.position += delta;
-    // }
+        transform2d.position += delta;
+    }
 }

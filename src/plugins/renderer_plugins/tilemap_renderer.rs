@@ -1,3 +1,4 @@
+use crate::ecs::component::Component;
 use crate::ecs::singletons::{self, Singletons};
 use crate::storage::Storage;
 use crate::{
@@ -84,6 +85,8 @@ pub struct TileMap {
     pub tile_size: Vec2,
     pub texture: AssetRef<Image>,
 }
+
+impl Component for TileMap {}
 
 impl TileMap {
     pub fn new(tile_size: Vec2, texture: AssetRef<Image>) -> Self {

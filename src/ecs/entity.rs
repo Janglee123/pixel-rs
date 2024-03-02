@@ -1,5 +1,8 @@
+use super::component::Component;
+
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
 pub struct EntityId(u64);
+impl  Component for EntityId {}
 
 impl EntityId {
     pub const INVALID: EntityId = EntityId(u64::MAX);

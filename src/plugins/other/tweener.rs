@@ -1,4 +1,4 @@
-use crate::storage::Storage;
+use crate::{storage::Storage, ecs::component::Component};
 use std::default;
 
 use glam::Vec2;
@@ -59,6 +59,7 @@ impl<T: Interpolate + Clone + Default> TweenerState<T> {
 pub struct PositionTweener {
     tweener_state: TweenerState<Vec2>,
 }
+impl Component for PositionTweener{}
 
 impl PositionTweener {
     pub fn new(start: Vec2, end: Vec2, duration: f32, easing: Easing) -> Self {
@@ -88,6 +89,8 @@ pub struct ScaleTweener {
     tweener_state: TweenerState<Vec2>,
 }
 
+impl Component for ScaleTweener{}
+
 impl ScaleTweener {
     pub fn new(start: Vec2, end: Vec2, duration: f32, easing: Easing) -> Self {
         Self {
@@ -107,6 +110,9 @@ pub struct CustomTweener {
     tweener_state: TweenerState<f32>,
     pub callback: Box<dyn FnMut(f32) -> ()>,
 }
+
+impl Component for CustomTweener{}
+
 
 fn get_eased_value(x: f32, easing: &Easing) -> f32 {
     match easing {

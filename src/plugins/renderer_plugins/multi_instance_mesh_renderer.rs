@@ -1,7 +1,7 @@
 use crate::{
     ecs::{
         singletons::{self, Singletons},
-        world::World,
+        world::World, component::Component,
     },
     math::{
         honeycomb::HEXAGON_INDICES,
@@ -66,6 +66,8 @@ pub struct MultiInstanceMesh {
     pub mesh: Arc<Mesh>,
     texture: Texture,
 }
+
+impl Component for MultiInstanceMesh {}
 
 impl MultiInstanceMesh {
     pub fn new(

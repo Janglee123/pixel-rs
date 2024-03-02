@@ -8,7 +8,7 @@
 7.  [x] Input enums
 8. [x] ECS improvement
 9. [ ] Asset Path 
-10. [ ] TileMap improvement depends upon 5
+10. [ ] TileMap improvement
 11. [ ] Think about render Asset. 
 12. [ ] Add index_buffer and vertex_buffer into Gpu like texture_buffer
 13. [ ] `BufferVec<T>` from bevy
@@ -32,3 +32,11 @@
       - Afaik it puts same components in a vec and uses spare set inside archetypes. I think this will not help in cache locality as while iterating component vec it will jump back and forth inside array
   
 2. [ ] How to use `std::ptr` in rust
+
+
+# bevy RenderAsset
+- So there is list of assets to be uploaded to gpu
+- Every frame a system uploads stuff to gpu from it
+- Figure out where Render asset is pushed inside that list
+- Bevy have concept of sub app which is getting used
+- I dont know who owns the sub app

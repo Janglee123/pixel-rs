@@ -3,6 +3,8 @@ use std::ops::Mul;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat2, Mat3, Vec2, Vec3, Vec4};
 
+use crate::ecs::component::Component;
+
 #[derive(Debug, Default, Clone)]
 
 pub struct Transform2d {
@@ -10,6 +12,8 @@ pub struct Transform2d {
     pub rotation: f32, // Rotation in radiance
     pub scale: Vec2,
 }
+
+impl Component for Transform2d {}
 
 impl Transform2d {
     pub fn new(position: Vec2, rotation: f32, scale: Vec2) -> Self {

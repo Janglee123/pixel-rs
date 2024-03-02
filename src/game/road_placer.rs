@@ -1,4 +1,4 @@
-use crate::storage::Storage;
+use crate::{storage::Storage, ecs::component::Component};
 
 use glam::{vec2, Vec2};
 
@@ -36,6 +36,8 @@ use super::core::level_manager::RoadRemovedEvent;
 pub struct RoadPlacer {
     current_pos: Hextor,
 }
+impl Component for RoadPlacer{}
+
 
 pub struct RoadPlacerPlugin;
 

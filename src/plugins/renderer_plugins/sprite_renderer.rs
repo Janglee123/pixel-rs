@@ -1,5 +1,8 @@
 use crate::{
-    ecs::singletons::{self, Singletons},
+    ecs::{
+        component::Component,
+        singletons::{self, Singletons},
+    },
     storage::Storage,
 };
 use bytemuck::{Pod, Zeroable};
@@ -137,7 +140,6 @@ impl Renderer for SpritePlugin {
 
 impl Plugin for SpritePlugin {
     fn build(app: &mut crate::app::App) {
-
         app.storage.world.register_component::<Sprite>();
 
         let (gpu, camera_data) = app
@@ -339,6 +341,8 @@ pub struct Sprite {
     pub color: Color,
     pub z_index: i32,
 }
+
+impl Component for Sprite {}
 
 impl Sprite {
     pub fn new(image: AssetRef<Image>, color: Color, size: Vec2, z_index: i32) -> Self {

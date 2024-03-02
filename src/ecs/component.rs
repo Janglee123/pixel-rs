@@ -79,8 +79,6 @@ impl Components {
 
 pub trait Component: 'static {}
 
-impl<T: 'static> Component for T {}
-
 type ComponentVec<T: Component> = Vec<T>;
 
 #[derive(Debug)]
@@ -90,6 +88,8 @@ pub struct TypeErasedComponentVec {
 
 impl TypeErasedComponentVec {
     pub fn new<T: Component>() -> Self {
+
+        println!("Created type erased map with TypeId: {:?}", TypeId::of::<T>());
         Self {
             vec: Box::new(ComponentVec::<T>::new()),
         }

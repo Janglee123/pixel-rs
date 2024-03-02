@@ -15,6 +15,7 @@ pub trait ComponentSet {
     fn get_type_id_vec() -> Vec<TypeId>;
 
     fn get_map(self) -> HashMap<TypeId, Box<dyn Any>>;
+    fn get_component_map(self) -> HashMap<TypeId, Box<dyn Component>>;
 }
 
 impl<T: Component> ComponentSet for (T,) {
@@ -31,6 +32,15 @@ impl<T: Component> ComponentSet for (T,) {
 
         a
     }
+
+    fn get_component_map(self) -> HashMap<TypeId, Box<dyn Component>> {
+        let mut a: HashMap<TypeId, Box<dyn Component>> = HashMap::new();
+
+        a.insert(TypeId::of::<T>(), Box::new(self.0));
+
+        a
+    }
+
 }
 
 macro_rules! impl_component_set {
@@ -51,6 +61,12 @@ macro_rules! impl_component_set {
                 a
             }
 
+            fn get_component_map(self) -> HashMap<TypeId, Box<dyn Component>> {
+                let mut a: HashMap<TypeId, Box<dyn Component>> = HashMap::new();
+
+                $( a.insert(TypeId::of::<$t>(), Box::new(self.$index)); )+
+                a
+            }
         }
     };
 }

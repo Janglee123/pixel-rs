@@ -4,7 +4,7 @@ use glam::Vec2;
 
 use crate::{
     app::Plugin,
-    ecs::world::World,
+    ecs::{world::World, component::Component},
     game::core::level_manager::TilesAddedEvent,
     math::{
         color::Color,
@@ -28,6 +28,7 @@ use super::core::level_manager::LevelManager;
 
 pub struct GroundPlugin;
 pub struct Ground;
+impl Component for Ground{}
 
 impl Plugin for GroundPlugin {
     fn build(app: &mut crate::app::App) {

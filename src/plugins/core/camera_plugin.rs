@@ -8,7 +8,7 @@ use crate::{
     app::{Plugin, SystemStage},
     ecs::{
         singletons::{self, Singletons},
-        world::{self, World},
+        world::{self, World}, component::Component,
     },
     math::transform2d::{AlignedMatrix, Transform2d},
     storage::{self, Storage},
@@ -19,6 +19,8 @@ use super::render_plugin::{Gpu, Renderer};
 pub struct Camera {
     pub projection: Mat3,
 }
+
+impl Component for Camera {}
 
 pub struct CameraBindGroup {
     pub layout: BindGroupLayout,

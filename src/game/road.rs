@@ -7,7 +7,7 @@ use crate::{
     app::Plugin,
     ecs::{
         entity::{self, EntityId},
-        world::World,
+        world::World, component::Component,
     },
     math::{
         color::Color,
@@ -43,6 +43,10 @@ pub struct Road {
     center: Hextor,
     neighbor: Hextor,
 }
+
+impl Component for Road{}
+impl Component for Roads{}
+
 
 impl Plugin for RoadPlugin {
     fn build(app: &mut crate::app::App) {
@@ -113,7 +117,7 @@ fn on_road_added(storage: &mut Storage, data: &RoadAddedEvent) {
                 road_texture.clone(),
                 Color::WHITE,
                 Vec2::new(64.0, 18.0),
-                100,
+                1,
             );
             let sprite_b = Sprite::new(
                 road_texture.clone(),
