@@ -4,7 +4,7 @@ pub struct BitSet {
 }
 
 impl BitSet {
-    const INVALID: BitSet = BitSet {
+    pub const INVALID: BitSet = BitSet {
         bitmask: [u64::MAX, u64::MAX, u64::MAX, u64::MAX],
     };
 

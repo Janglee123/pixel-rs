@@ -58,7 +58,7 @@ impl Components {
         self.vec_operator_map.get(id)
     }
 
-    pub fn register_component<T: Component>(&mut self) {
+    pub fn register_component<T: Component>(&mut self) -> ComponentTypeId {
         let type_id = TypeId::of::<T>();
 
         if let None = self.type_map.get(&type_id) {
@@ -70,6 +70,8 @@ impl Components {
 
             self.type_names.insert(id, std::any::type_name::<T>().to_string());
         }
+
+        *self.type_map.get(&type_id).unwrap()
     }
 
     pub fn get_name(&self, id: &ComponentTypeId) -> &String {

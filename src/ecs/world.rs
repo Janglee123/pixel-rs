@@ -1,16 +1,21 @@
 extern crate proc_macro;
 use core::arch;
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use itertools::izip;
 use std::any::{Any, TypeId};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter;
+use std::marker::PhantomData;
+use std::path::Iter;
+use std::sync::Arc;
 
 use super::archetype::{self, Archetype};
 use super::bitset::{self, BitSet};
-use super::component::{self, Component, ComponentTypeId, Components, TypeErasedComponentVec};
+use super::component::{
+    self, Component, ComponentTypeId, ComponentVecOperator, Components, TypeErasedComponentVec,
+};
 use super::component_set::ComponentSet;
 use super::entity::{self, Entities, EntityId};
 use super::event_bus::{EventBus, WorldEvent};
@@ -21,18 +26,22 @@ pub struct World {
     pub entities: Entities,
     pub archetype_id_map: HashMap<BitSet, Archetype>,
     entity_archetype_map: HashMap<EntityId, BitSet>,
+
+    entity_id_id: ComponentTypeId, // LOL WHAT A NAME
 }
 
 impl World {
     pub fn new() -> Self {
+        let mut components = Components::new();
+        let entity_id_id = components.register_component::<EntityId>();
+
         let mut result = Self {
             entities: Entities::new(),
-            components: Components::new(),
             archetype_id_map: HashMap::new(),
             entity_archetype_map: HashMap::new(),
+            components,
+            entity_id_id,
         };
-
-        result.register_component::<EntityId>();
 
         result
     }
@@ -42,16 +51,16 @@ impl World {
     }
 
     pub fn register_component<T: Component>(&mut self) {
-        self.components.register_component::<T>()
+        self.components.register_component::<T>();
     }
 
     pub fn get_column_names(&self, id: &BitSet) -> Vec<&String> {
-        let new_archetype = self.archetype_id_map.get(id).unwrap();
-
         let mut type_names = Vec::new();
 
-        for components in new_archetype.columns.keys() {
-            type_names.push(self.components.get_name(components))
+        for i in 0..255 {
+            if id.contains_id(i) {
+                type_names.push(self.components.get_name(&ComponentTypeId(i)));
+            }
         }
 
         type_names
@@ -82,7 +91,7 @@ impl World {
         // one way is to add get_as_any inside component trait
         for (type_id, component) in component_set.get_map() {
             let id = self.components.get_component_id(&type_id).unwrap();
-            let type_erased_vec = archetype.columns.get_mut(&id).unwrap();
+            let type_erased_vec = archetype.get_column_mut(&id);
             let operator = self.components.get_component_vec_operator(&id).unwrap();
             (operator.pusher)(type_erased_vec, component);
         }
@@ -91,7 +100,7 @@ impl World {
             .components
             .get_component_id(&TypeId::of::<EntityId>())
             .unwrap();
-        let type_erased_vec = archetype.columns.get_mut(&id).unwrap();
+        let type_erased_vec = archetype.get_column_mut(&id);
         let operator = self.components.get_component_vec_operator(&id).unwrap();
         (operator.pusher)(type_erased_vec, Box::new(entity_id.clone()));
 
@@ -105,29 +114,27 @@ impl World {
         if let Some(id) = self.entity_archetype_map.get(&entity_id) {
             let archetype = self.archetype_id_map.get_mut(id).unwrap();
 
-            // I need to store double map to make this O(1)
-            // As swap_remove is O(1) function but then it changes index
-            // So to update index in map I have to loop
+            let entity_type_id = self.entity_id_id;
 
-            let entity_type_id = self
-                .components
-                .get_component_id(&TypeId::of::<EntityId>())
-                .unwrap();
-
-            let entity_column = archetype
-                .columns
-                .get(&entity_type_id)
-                .unwrap()
-                .get::<EntityId>();
+            let entity_column = archetype.get_column(&entity_type_id).get::<EntityId>();
 
             let row = entity_column.iter().position(|x| *x == entity_id).unwrap();
 
-            for (component_id, type_erased_vec) in &mut archetype.columns {
+            let mut change = Vec::new();
+
+            for (component_id, index) in &archetype.component_id_column_index_map {
                 let operator = self
                     .components
                     .get_component_vec_operator(&component_id)
                     .unwrap();
+                
+                change.push((operator, *component_id));
+                
+            }
 
+            for (operator, component_id) in change {
+                // Meh doing index 2 times
+                let type_erased_vec = archetype.get_column_mut(&component_id);
                 (operator.swap_remover)(type_erased_vec, row);
             }
 
@@ -141,20 +148,20 @@ impl World {
 
         let src_archetype = self.archetype_id_map.get_mut(&src_id).unwrap();
 
-        let entity_type_idd = self
-            .components
-            .get_component_id(&TypeId::of::<EntityId>())
-            .unwrap();
-
         let entity_column = src_archetype
-            .columns
-            .get(&entity_type_idd)
-            .unwrap()
+            .get_column(&self.entity_id_id)
             .get::<EntityId>();
 
         let row = entity_column.iter().position(|x| *x == entity_id).unwrap();
 
-        let mut type_ids = src_archetype.get_type_ids();
+        let mut type_ids = Vec::new();
+
+        for i in 0..255 {
+            if(src_id.contains_id(i))
+            {
+                type_ids.push(ComponentTypeId(i));
+            }
+        }
 
         let index_of_target = type_ids.iter().position(|id| *id == target_id).unwrap();
 
@@ -206,8 +213,8 @@ impl World {
                 .get_component_vec_operator(component_type_id)
                 .unwrap();
 
-            let src_vec = src_archetype.columns.get_mut(component_type_id).unwrap();
-            let dest_vec = dest_archetype.columns.get_mut(component_type_id).unwrap();
+            let src_vec = src_archetype.get_column_mut(component_type_id);
+            let dest_vec = dest_archetype.get_column_mut(component_type_id);
 
             (operator.migrator)(src_vec, dest_vec, src_index);
         }
@@ -232,9 +239,7 @@ impl World {
                 .get_component_vec_operator(&component_type_id)
                 .unwrap();
 
-            archetype
-                .columns
-                .insert(component_type_id.clone(), (operator.creator)());
+            archetype.insert_column(component_type_id.clone(), (operator.creator)());
         }
 
         archetype
@@ -290,28 +295,41 @@ impl<T: Hash + Eq + PartialEq + Copy + Clone, V> Schedular<T, V> {
     }
 }
 
-
 pub trait Query<'a> {
     type IterType;
     type IterMutType;
 
+    fn get_bit_set_id(world: &'a World) -> BitSet;
+    fn get_component_id(world: &'a World) -> Vec<ComponentTypeId>;
+
     fn query(world: &'a World) -> impl Iterator<Item = Self::IterType>;
     fn query_mut(world: &'a mut World) -> impl Iterator<Item = Self::IterMutType>;
-
-    fn query_from_entities(
-        world: &'a World,
-        entities: &[EntityId],
-    ) -> impl Iterator<Item = Self::IterType>;
-
-    fn query_from_entities_mut(
-        world: &'a mut World,
-        entities: &'a [EntityId],
-    ) -> impl Iterator<Item = Self::IterMutType>;
 }
 
 impl<'a, T: Component> Query<'a> for (T,) {
     type IterType = (&'a T,);
     type IterMutType = (&'a mut T,);
+
+    fn get_bit_set_id(world: &'a World) -> BitSet {
+        let mut bitset = BitSet::new();
+
+        let id = world
+            .components
+            .get_component_id(&TypeId::of::<T>())
+            .unwrap();
+        bitset.insert_id(id.0);
+
+        bitset
+    }
+
+    fn get_component_id(world: &'a World) -> Vec<ComponentTypeId> {
+        let id = world
+            .components
+            .get_component_id(&TypeId::of::<T>())
+            .unwrap();
+
+        vec![id]
+    }
 
     fn query(world: &'a World) -> impl Iterator<Item = Self::IterType> {
         let mut bitset = BitSet::new();
@@ -331,10 +349,13 @@ impl<'a, T: Component> Query<'a> for (T,) {
             .iter()
             .filter(move |&(bitset, _)| bitset.contains(&target_bitset))
             .map(|(bitset, archetype)| {
-                let vec_of_vecs = [&archetype.columns[&world
+
+                let vec_of_vecs = archetype.get_many_columns(&vec![
+                    world
                     .components
                     .get_component_id(&TypeId::of::<T>())
-                    .unwrap()]];
+                    .unwrap()
+                ]);
 
                 let mut iter = vec_of_vecs.into_iter();
 
@@ -362,15 +383,13 @@ impl<'a, T: Component> Query<'a> for (T,) {
             .iter_mut()
             .filter(move |&(bitset, _)| bitset.contains(&target_bitset))
             .map(|(_, archetype)| {
-                let vec_of_vecs = [archetype
-                    .columns
-                    .get_mut(
-                        &world
-                            .components
-                            .get_component_id(&TypeId::of::<T>())
-                            .unwrap(),
-                    )
-                    .unwrap()];
+                
+                let vec_of_vecs = archetype.get_many_columns_mut(&vec![
+                    world
+                    .components
+                    .get_component_id(&TypeId::of::<T>())
+                    .unwrap(),
+                ]);
 
                 let mut iter = vec_of_vecs.into_iter();
 
@@ -380,146 +399,34 @@ impl<'a, T: Component> Query<'a> for (T,) {
 
         a.flatten()
     }
-
-    // This is not very optimized. It first iterates over all the archetype_id's and then again iterates over number of entities
-    // I need this functionality for implementing hierarchy
-    // Will improve it in ECS 3.0
-    fn query_from_entities(
-        world: &'a World,
-        entities: &[EntityId],
-    ) -> impl Iterator<Item = Self::IterType> {
-        let entity_type_id = world
-            .components
-            .get_component_id(&TypeId::of::<EntityId>())
-            .unwrap()
-            .clone();
-
-        let mut archetype_id_entity_id_map = HashMap::new();
-
-        for entity in entities {
-            let archetype_id = *world.entity_archetype_map.get(entity).unwrap();
-
-            if !archetype_id_entity_id_map.contains_key(&archetype_id) {
-                archetype_id_entity_id_map.insert(archetype_id, Vec::<EntityId>::new());
-            }
-
-            archetype_id_entity_id_map
-                .get_mut(&archetype_id)
-                .unwrap()
-                .push(*entity);
-        }
-
-        world
-            .archetype_id_map
-            .iter()
-            .map(move |(id, arch)| {
-        
-                let current_entities: &Vec<EntityId> = archetype_id_entity_id_map.get(id).unwrap();
-                let entity_column: &Vec<EntityId> = arch.columns.get(&entity_type_id).unwrap().get::<EntityId>();
-
-                let a = current_entities.iter().map(|entity_id| {
-                    let row = entity_column.iter().position(|x| *x == *entity_id).unwrap();
-
-                    let vec_of_vecs = [arch
-                        .columns
-                        .get(
-                            &world
-                                .components
-                                .get_component_id(&TypeId::of::<T>())
-                                .unwrap(),
-                        )
-                        .unwrap()];
-
-                    let mut iter = vec_of_vecs.into_iter();
-                    (&iter.next().unwrap().get::<T>()[row],)
-                });
-                
-                a
-            }).flatten()
-
-    }
-
-    fn query_from_entities_mut(
-        world: &'a mut World,
-        entities: &'a [EntityId],
-    ) -> impl Iterator<Item = Self::IterMutType> {
-        let entity_type_id = world
-            .components
-            .get_component_id(&TypeId::of::<EntityId>())
-            .unwrap()
-            .clone();
-
-        // let entities: Vec<EntityId> = entities.iter().map(|x| x.clone()).collect();
-        // I have to filter is some other way too bad Sad
-
-        let archetype_ids: Vec<BitSet> = entities
-            .iter()
-            .map(|entity_id| {
-                let archetype_id = world.entity_archetype_map.get(entity_id).unwrap();
-                *archetype_id
-            })
-            .collect();
-
-        world.archetype_id_map.get_many_mut(archetype_ids);
-
-        let a: Vec<&mut Archetype> = archetype_ids
-            .iter()
-            .map(|id| {
-                let archetype = world.archetype_id_map.get_mut(id).unwrap();
-
-                archetype
-            })
-            .collect();
-
-        let a: Vec<&mut Archetype> = world
-            .archetype_id_map
-            .iter_mut()
-            .filter(|(&id, _)| archetype_ids.iter().position(|&x| x == id).is_some())
-            .map(|(_, a)| a)
-            .collect();
-
-        entities
-            .iter()
-            .map(move |entity_id| {
-                let archetype_id = world.entity_archetype_map.get(entity_id).unwrap();
-                let archetype = world.archetype_id_map.get_mut(archetype_id).unwrap();
-
-                let entity_column = archetype
-                    .columns
-                    .get_mut(&entity_type_id)
-                    .unwrap()
-                    .get::<EntityId>();
-
-                let row = entity_column.iter().position(|x| *x == *entity_id).unwrap();
-
-                let vec_of_vecs = [archetype
-                    .columns
-                    .get_mut(
-                        &world
-                            .components
-                            .get_component_id(&TypeId::of::<T>())
-                            .unwrap(),
-                    )
-                    .unwrap()];
-
-                let mut iter = vec_of_vecs.into_iter();
-
-                let b = iter.next().unwrap();
-                let a = &mut b.get_mut::<T>()[row];
-
-                let c = [(a,)].into_iter();
-                c
-            })
-            .flatten()
-    }
 }
 
 macro_rules! impl_query {
-    ($($t: ident,)+) => {
+    ($n:literal, $($t: ident,)+) => {
         impl<'a, $($t: Component,)+> Query<'a> for ($($t,)+) {
 
             type IterType = ( $(&'a $t,)+ );
             type IterMutType = ( $(&'a mut $t,)+ );
+
+            fn get_bit_set_id(world: &'a World) -> BitSet {
+                let mut bitset = BitSet::new();
+                $(
+                    let id = world.components.get_component_id(&TypeId::of::<$t>()).unwrap();
+                    bitset.insert_id(id.0);
+                )+
+
+                bitset
+            }
+
+            fn get_component_id(world: &'a World) -> Vec<ComponentTypeId> {
+
+                vec![
+                    $(world
+                    .components
+                    .get_component_id(&TypeId::of::<$t>())
+                    .unwrap(),)+
+                ]
+            }
 
             fn query(world: &'a World) -> impl Iterator<Item = Self::IterType> {
 
@@ -541,9 +448,9 @@ macro_rules! impl_query {
                     .filter(move |&(bitset, _)| bitset.contains(&target_bitset))
                     .map(|(bitset, archetype)| {
 
-                        let vec_of_vecs = [
-                            $( archetype.columns.get(&world.components.get_component_id(&TypeId::of::<$t>()).unwrap()).unwrap() ,)*
-                        ];
+                        let vec_of_vecs = archetype.get_many_columns(&vec![
+                            $(world.components.get_component_id(&TypeId::of::<$t>()).unwrap(),)+
+                        ]);
 
                         let mut iter = vec_of_vecs.into_iter();
 
@@ -575,9 +482,10 @@ macro_rules! impl_query {
                     .filter(move |&(bitset, _)| bitset.contains(&target_bitset))
                     .map(|(_, archetype)| {
 
-                        let vec_of_vecs = archetype.columns.get_many_mut([
-                            $( &world.components.get_component_id(&TypeId::of::<$t>()).unwrap(), )*
-                        ]).unwrap();
+                        let vec_of_vecs = archetype.get_many_columns_mut(&vec![
+                            $(world.components.get_component_id(&TypeId::of::<$t>()).unwrap(),)+
+                        ]);
+
 
                         let mut iter = vec_of_vecs.into_iter();
 
@@ -595,11 +503,11 @@ macro_rules! impl_query {
     };
 }
 
-impl_query!(A, B,);
-impl_query!(A, B, C,);
-impl_query!(A, B, C, D,);
-impl_query!(A, B, C, D, E,);
-impl_query!(A, B, C, D, E, F,);
-impl_query!(A, B, C, D, E, F, G,);
-impl_query!(A, B, C, D, E, F, G, H,);
-impl_query!(A, B, C, D, E, F, G, H, I,);
+impl_query!(2, A, B,);
+impl_query!(3, A, B, C,);
+impl_query!(4, A, B, C, D,);
+impl_query!(5, A, B, C, D, E,);
+impl_query!(6, A, B, C, D, E, F,);
+impl_query!(7, A, B, C, D, E, F, G,);
+impl_query!(8, A, B, C, D, E, F, G, H,);
+impl_query!(9, A, B, C, D, E, F, G, H, I,);
