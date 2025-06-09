@@ -29,7 +29,7 @@ pub fn get_dummy_level() -> LevelDescriptor {
 
     let mut i = 0;
     for center in centers {
-        let tiles: Vec<Hextor> = SpiralLoop::new(center, 2).collect();
+        let tiles: Vec<Hextor> = SpiralLoop::new(center, 5).collect();
 
         let area = AreaDescriptor {
             reward: ResourceStack::resource_array(3, 0, 0),
@@ -45,6 +45,6 @@ pub fn get_dummy_level() -> LevelDescriptor {
     LevelDescriptor {
         // starting_resources: ResourceStack::resource_array(0, 0, 0),
         areas: areas,
-        starting_road: Hextor::new(0,0),
+        starting_road: Hextor::new(0, 0),
     }
 }

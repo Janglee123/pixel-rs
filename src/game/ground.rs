@@ -4,7 +4,7 @@ use glam::Vec2;
 
 use crate::{
     app::Plugin,
-    ecs::{world::World, component::Component},
+    ecs::{component::Component, world::World},
     game::core::level_manager::TilesAddedEvent,
     math::{
         color::Color,
@@ -21,14 +21,15 @@ use crate::{
             tilemap_renderer::{TileData, TileMap},
             // tilemap_renderer::{TileData, TileMap, TileMapBindGroupLayout},
         },
-    }, storage::Storage,
+    },
+    storage::Storage,
 };
 
 use super::core::level_manager::LevelManager;
 
 pub struct GroundPlugin;
 pub struct Ground;
-impl Component for Ground{}
+impl Component for Ground {}
 
 impl Plugin for GroundPlugin {
     fn build(app: &mut crate::app::App) {
@@ -62,16 +63,16 @@ impl Plugin for GroundPlugin {
 
         app.storage.world.register_component::<Ground>();
 
-        app.storage.world.insert_entity((tile_map, transform2d, Ground));
+        app.storage
+            .world
+            .insert_entity((tile_map, transform2d, Ground));
 
         app.storage.add_listener::<TilesAddedEvent>(on_tiles_added);
     }
 }
 
 pub fn on_tiles_added(storage: &mut Storage, _: &TilesAddedEvent) {
-
     for (tile_map, _) in storage.world.query_mut::<(TileMap, Ground)>() {
-
         let level_manager = storage.singletons.get::<LevelManager>().unwrap();
 
         tile_map.tiles.clear();

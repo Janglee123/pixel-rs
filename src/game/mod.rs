@@ -1,6 +1,7 @@
 use crate::app::Plugin;
 use crate::math::honeycomb::Hextor;
 
+use self::building_mesh::BuildingRenderPlugin;
 use self::camera_controller::CameraControllerPlugin;
 use self::core::level_manager::{self, LevelManager, RoadAddedEvent, TilesAddedEvent};
 use self::ground::GroundPlugin;
@@ -14,6 +15,7 @@ mod ground;
 mod resources;
 mod road;
 mod road_placer;
+mod building_mesh;
 
 pub struct GamePlugin;
 
@@ -23,6 +25,7 @@ impl Plugin for GamePlugin {
         app.register_plugin::<RoadPlugin>();
         app.register_plugin::<RoadPlacerPlugin>();
         app.register_plugin::<CameraControllerPlugin>();
+        app.register_plugin::<BuildingRenderPlugin>();
 
         let level_descriptor = get_dummy_level();
         let level_manager = LevelManager::new(&level_descriptor);

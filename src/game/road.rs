@@ -6,8 +6,9 @@ use hashbrown::{HashMap, HashSet};
 use crate::{
     app::Plugin,
     ecs::{
+        component::Component,
         entity::{self, EntityId},
-        world::World, component::Component,
+        world::World,
     },
     math::{
         color::Color,
@@ -44,9 +45,8 @@ pub struct Road {
     neighbor: Hextor,
 }
 
-impl Component for Road{}
-impl Component for Roads{}
-
+impl Component for Road {}
+impl Component for Roads {}
 
 impl Plugin for RoadPlugin {
     fn build(app: &mut crate::app::App) {
@@ -113,12 +113,8 @@ fn on_road_added(storage: &mut Storage, data: &RoadAddedEvent) {
                 Vec2::new(1.0, 1.0),
             );
 
-            let sprite_a = Sprite::new(
-                road_texture.clone(),
-                Color::WHITE,
-                Vec2::new(64.0, 18.0),
-                1,
-            );
+            let sprite_a =
+                Sprite::new(road_texture.clone(), Color::WHITE, Vec2::new(64.0, 18.0), 1);
             let sprite_b = Sprite::new(
                 road_texture.clone(),
                 Color::WHITE,
